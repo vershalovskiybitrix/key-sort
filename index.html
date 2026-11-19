@@ -1386,7 +1386,7 @@
     }
     async function addNegativeWord(source) {
       const word = await normalFormForNegativeWord(source);
-      performHistoryAction(() => {
+      return performHistoryAction(() => {
         if (getNegativeWords(rawWords, []).has(normalizedWord(word))) return;
         rawWords += (rawWords && !/[\s,;]$/u.test(rawWords) ? " " : "") + word;
         if (cleanSetting.checked) rawWords = cleanWordText(rawWords);
@@ -1880,9 +1880,9 @@
       if (range) removeNegativeWordAt(range.start, range.end);
     });
     $("refreshLemmaFrequency").addEventListener("click", refreshLemmaFrequency);
-    $("lemmaFrequencyItems").addEventListener("click", event => {
+    $("lemmaFrequencyItems").addEventListener("click", async event => {
       const button = event.target.closest(".lemma-frequency-word");
-      if (button) addNegativeWord(button.dataset.word);
+      if (button && await addNegativeWord(button.dataset.word)) button.closest(".lemma-frequency-row")?.remove();
     });
     phrasesInput.addEventListener("input", updatePhrasesFromInput);
     phrasesInput.addEventListener("focus", scheduleRecalculate);
