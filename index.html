@@ -6,6 +6,20 @@
   <title>Key Sort — сортировка поисковых запросов</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTgiIGZpbGw9IiMyNDRkYjciLz48cGF0aCBkPSJNMjQgMzJINDAiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+">
   <style>
+    @font-face {
+      font-family: "Source Code Pro";
+      src: url("assets/fonts/SourceCodePro.ttf?v=1") format("truetype");
+      font-style: normal;
+      font-weight: 400 700;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: "Roboto Mono";
+      src: url("assets/fonts/RobotoMono.ttf?v=1") format("truetype");
+      font-style: normal;
+      font-weight: 400 700;
+      font-display: swap;
+    }
     :root {
       color-scheme: light;
       --bg: #e9e9e8;
@@ -16,8 +30,14 @@
       --accent-pale: #ededec;
       --danger: #000;
       --success: #000;
-      font-family: Arial, sans-serif;
+      --font-body: "Roboto Mono", Arial, sans-serif;
+      --font-heading: "Source Code Pro", Arial, sans-serif;
+      font-family: var(--font-body);
       font-size: 16px;
+    }
+    :root.legacy-fonts {
+      --font-body: Arial, sans-serif;
+      --font-heading: Arial, sans-serif;
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--text); }
@@ -31,9 +51,10 @@
     .app-header { display: grid; grid-template-columns: minmax(260px, 1fr) 200px auto auto; gap: 12px; align-items: end; margin-bottom: 16px; }
     .header-title { flex: 1 1 auto; min-width: 0; }
     .header-note { flex: 0 1 200px; min-width: 145px; }
-    .header-note input { width: 100%; height: 30px; border: 1px solid #999; border-radius: 0; padding: 0 12px; font: 14px/1.4 Arial, sans-serif; color: var(--text); background: #fff; outline: none; }
+    .header-note input { width: 100%; height: 30px; border: 1px solid #999; border-radius: 0; padding: 0 12px; font: 14px/1.4 var(--font-body); color: var(--text); background: #fff; outline: none; }
     .header-note input::placeholder { color: #8290a6; }
     .header-note input:focus { border-color: #000; box-shadow: none; }
+    h1, h2, h3, .panel-title, .settings-heading, .lemma-frequency-head, .group-list-title { font-family: var(--font-heading); }
     h1 { font-size: 32px; font-weight: 700; margin: 0 0 5px; letter-spacing: 0; }
     .subtitle { color: var(--muted); font-size: 15px; line-height: 1.45; }
     .top-layout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; gap: 16px; }
@@ -48,7 +69,7 @@
     .help { font-size: 12px; color: var(--muted); line-height: 1.45; }
     .count { display: inline-block; color: #333; font-size: 12px; background: #d7d7d5; white-space: nowrap; border-radius: 0; padding: 6px 9px; }
     .field-head-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex-wrap: wrap; flex: 0 0 auto; }
-    .field-button { height: 30px; display: inline-flex; justify-content: center; align-items: center; gap: 5px; border: 1px solid #888; color: #000; background: transparent; border-radius: 0; padding: 0 10px; font: 400 13px/1.35 Arial, sans-serif; cursor: pointer; white-space: nowrap; }
+    .field-button { height: 30px; display: inline-flex; justify-content: center; align-items: center; gap: 5px; border: 1px solid #888; color: #000; background: transparent; border-radius: 0; padding: 0 10px; font: 400 13px/1.35 var(--font-body); cursor: pointer; white-space: nowrap; }
     .field-button:hover { background: #000; border-color: #000; color: #fff; }
     .field-button:active { background: #333; }
     .field-button:focus-visible { outline: 2px solid #000; outline-offset: 2px; }
@@ -69,14 +90,14 @@
     .stack .panel-head > div:first-child { flex: 1 1 100%; }
     .stack .field-head-actions { width: 100%; justify-content: flex-start; }
     @media (max-width: 550px) { .panel-head { flex-wrap: wrap; } .field-head-actions { width: 100%; justify-content: flex-start; } }
-    textarea { width: 100%; background: #fff; color: #000; resize: vertical; border: 1px solid #aaa; border-radius: 0; padding: 13px 14px; font: 14px/1.1 Arial, sans-serif; outline: 0; tab-size: 2; }
+    textarea { width: 100%; background: #fff; color: #000; resize: vertical; border: 1px solid #aaa; border-radius: 0; padding: 13px 14px; font: 14px/1.1 var(--font-body); outline: 0; tab-size: 2; }
     textarea::placeholder { color: #9da6b4; opacity: 1; }
     textarea:focus { border-color: #000; box-shadow: none; }
     #queries { height: 352px; min-height: 150px; }
     #negativeWords, #negativePhrases { height: auto; min-height: 120px; }
     .negative-word-list { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 2px 8px; max-height: 82px; overflow: auto; margin-top: 8px; padding: 7px 9px; border: 1px solid #aaa; background: #fff; }
     .negative-word-list[hidden] { display: none !important; }
-    .negative-word-item { border: 0; border-radius: 0; padding: 2px 0; background: transparent; color: #000; font: 400 14px/1.1 Arial, sans-serif; cursor: pointer; }
+    .negative-word-item { border: 0; border-radius: 0; padding: 2px 0; background: transparent; color: #000; font: 400 14px/1.1 var(--font-body); cursor: pointer; }
     .negative-word-item:hover { background: #ddd; text-decoration: line-through; }
     .negative-word-item:focus-visible { outline: 2px solid #000; outline-offset: 1px; }
     .phrase-note { margin-top: 8px; color: var(--muted); font-size: 11px; }
@@ -109,7 +130,7 @@
     }
 
     .header-actions { margin-left: auto; align-self: end; position: relative; flex: 0 0 auto; z-index: 5; }
-    .settings-button { height: 30px; display: inline-flex; gap: 7px; align-items: center; border-radius: 0; border: 1px solid #888; background: transparent; padding: 0 10px; font: 400 13px/1.35 Arial, sans-serif; color: var(--text); cursor: pointer; }
+    .settings-button { height: 30px; display: inline-flex; gap: 7px; align-items: center; border-radius: 0; border: 1px solid #888; background: transparent; padding: 0 10px; font: 400 13px/1.35 var(--font-body); color: var(--text); cursor: pointer; }
     .settings-button:hover, .settings-button[aria-expanded="true"] { border-color: #000; background: #000; color: #fff; }
     .settings-button:focus-visible { outline: 2px solid #000; outline-offset: 2px; }
     .settings-menu { width: min(370px, calc(100vw - 30px)); position: absolute; top: calc(100% + 9px); right: 0; z-index: 20; background: #e9e9e8; border: 1px solid #888; box-shadow: none; border-radius: 0; padding: 10px; }
@@ -120,12 +141,12 @@
     .setting-row input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; flex-shrink: 0; cursor: pointer; }
     .query-mode { display: inline-flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 13px; cursor: pointer; }
     .query-mode input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
-    .clickable-results { flex: 1 1 auto; width: 100%; height: 480px; min-height: 300px; overflow: auto; background: #fff; border: 1px solid #aaa; border-radius: 0; padding: 0; font: 14px/1.1 Arial, sans-serif; user-select: text; }
+    .clickable-results { flex: 1 1 auto; width: 100%; height: 480px; min-height: 300px; overflow: auto; background: #fff; border: 1px solid #aaa; border-radius: 0; padding: 0; font: 14px/1.1 var(--font-body); user-select: text; }
     .clickable-word { cursor: pointer; border-radius: 0; }
     .clickable-word:hover { background: #ddd; color: #000; text-decoration: underline; }
     .clickable-results:focus { outline: 0; border-color: #000; box-shadow: none; }
     .group-add { display: flex; justify-content: flex-end; gap: 8px; }
-    .group-add input { width: 260px; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 10px; font: 13px/1.2 Arial, sans-serif; background: #fff; }
+    .group-add input { width: 260px; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 10px; font: 13px/1.2 var(--font-body); background: #fff; }
     .query-grid { min-width: 100%; width: max-content; }
     .query-row { display: grid; grid-template-columns: var(--group-columns) minmax(430px, 1fr); min-height: 24px; border-bottom: 1px solid #e1e1df; }
     .query-grid.with-frequency .query-row { grid-template-columns: var(--group-columns) minmax(430px, 1fr) 120px; }
@@ -133,7 +154,7 @@
     .query-row-header { position: sticky; top: 0; z-index: 3; min-height: 30px; background: #efefed; font-weight: 700; border-bottom: 1px solid #aaa; }
     .group-head, .group-cell { width: 42px; display: grid; place-items: center; border-right: 1px solid #ddd; }
     .group-head { font-size: 12px; }
-    .group-cell { appearance: none; margin: 0; padding: 0; border: 0; border-right: 1px solid #ddd; border-radius: 0; background: #fff; cursor: pointer; color: #111; font: 700 16px/1 Arial, sans-serif; }
+    .group-cell { appearance: none; margin: 0; padding: 0; border: 0; border-right: 1px solid #ddd; border-radius: 0; background: #fff; cursor: pointer; color: #111; font: 700 16px/1 var(--font-body); }
     .group-cell::after { content: ""; width: 15px; height: 15px; border: 1px solid #999; }
     .group-cell[aria-checked="true"]::after { content: "✓"; display: grid; place-items: center; color: #fff; background: #111; border-color: #111; font-size: 12px; }
     .group-cell:focus { position: relative; z-index: 2; outline: 3px solid #111; outline-offset: -3px; }
@@ -152,7 +173,7 @@
     .lemma-frequency-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px; min-height: 26px; border-bottom: 1px solid #ddd; font-size: 14px; line-height: 1.1; }
     .lemma-frequency-row:last-child { border-bottom: 0; }
     .lemma-frequency-columns { position: sticky; top: 0; z-index: 2; min-height: 30px; background: #efefed; font-size: 12px; font-weight: 700; }
-    .lemma-frequency-word { min-width: 0; border: 0; border-radius: 0; padding: 5px 10px; background: transparent; color: #000; font: 400 14px/1.1 Arial, sans-serif; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+    .lemma-frequency-word { min-width: 0; border: 0; border-radius: 0; padding: 5px 10px; background: transparent; color: #000; font: 400 14px/1.1 var(--font-body); text-align: left; cursor: pointer; overflow-wrap: anywhere; }
     .lemma-frequency-word:hover { background: #ddd; text-decoration: underline; }
     .lemma-frequency-word:focus-visible { outline: 2px solid #000; outline-offset: -2px; }
     .lemma-frequency-label { padding: 5px 10px; }
@@ -164,19 +185,19 @@
     .group-list-item:last-child { border-bottom: 0; }
     .group-list-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
     .group-list-frequency { flex: 0 0 92px; padding-left: 10px; border-left: 1px solid #ddd; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .group-list-return { border: 0; background: transparent; padding: 0 3px; color: #555; font: 400 18px/1 Arial, sans-serif; cursor: pointer; }
+    .group-list-return { border: 0; background: transparent; padding: 0 3px; color: #555; font: 400 18px/1 var(--font-body); cursor: pointer; }
     .group-list-return:hover { color: #000; }
     .group-list-empty { padding: 14px; color: #777; font-size: 13px; }
     .group-list-title { flex: 1 1 auto; min-width: 0; }
     .group-list-controls { display: flex; align-items: center; gap: 4px; }
-    .group-control { width: 30px; height: 30px; border: 1px solid #888; background: transparent; padding: 0; font: 400 13px/1 Arial, sans-serif; cursor: pointer; }
+    .group-control { width: 30px; height: 30px; border: 1px solid #888; background: transparent; padding: 0; font: 400 13px/1 var(--font-body); cursor: pointer; }
     .group-control:hover { background: #000; color: #fff; }
     .group-control[disabled] { opacity: .35; cursor: default; background: transparent; color: #000; }
     .group-edit { width: 30px; }
     .group-rename { width: 76px; }
     .group-delete { width: 64px; }
     .group-copy { width: 92px; }
-    .group-rename-input { width: 100%; height: 30px; border: 1px solid #888; padding: 0 7px; font: 400 14px/1 Arial, sans-serif; background: #fff; }
+    .group-rename-input { width: 100%; height: 30px; border: 1px solid #888; padding: 0 7px; font: 400 14px/1 var(--font-body); background: #fff; }
     .group-add-section { margin-top: 12px; display: flex; justify-content: flex-end; }
     .result-status { min-height: 18px; margin: 0 0 8px; display: flex; justify-content: flex-end; }
     .result-panel { grid-column: span 2; }
@@ -237,6 +258,7 @@
           <label class="setting-row"><input type="checkbox" id="settingDash"><span>Автоматически добавлять «-» к Минус-словам</span></label>
           <label class="setting-row"><input type="checkbox" id="settingQuote"><span>Автоматически минусовать Минус-фразы</span></label>
           <label class="setting-row"><input type="checkbox" id="settingCopyFrequency" checked><span>Копировать с частотностями</span></label>
+          <label class="setting-row"><input type="checkbox" id="settingSiteFonts" checked><span>Шрифты vershalovskiy.com (выключено — Arial)</span></label>
         </div>
       </div>
     </section>
@@ -371,6 +393,7 @@
     const dashSetting = $("settingDash");
     const quoteSetting = $("settingQuote");
     const copyFrequencySetting = $("settingCopyFrequency");
+    const siteFontsSetting = $("settingSiteFonts");
     const frequencyMode = $("frequencyMode");
     const undoButton = $("undoButton");
     const redoButton = $("redoButton");
@@ -430,6 +453,7 @@
         quote: quoteSetting.checked,
         frequencyMode: frequencyMode.checked,
         copyFrequency: copyFrequencySetting.checked,
+        siteFonts: siteFontsSetting.checked,
         focusId: focused ? focused.id : null,
         selectionStart: focused ? focused.selectionStart : null,
         selectionEnd: focused ? focused.selectionEnd : null
@@ -440,7 +464,7 @@
         a.queries === b.queries && a.words === b.words && a.phrases === b.phrases &&
         a.rawWords === b.rawWords && a.rawPhrases === b.rawPhrases &&
         a.click === b.click && a.clean === b.clean && a.cleanPhrases === b.cleanPhrases && a.dash === b.dash && a.quote === b.quote &&
-        a.frequencyMode === b.frequencyMode && a.copyFrequency === b.copyFrequency;
+        a.frequencyMode === b.frequencyMode && a.copyFrequency === b.copyFrequency && a.siteFonts === b.siteFonts;
     }
     function storeHistory(kind = "action", field = "") {
       if (restoringHistory) return;
@@ -496,6 +520,9 @@
         : "По группам: стрелки — движение, Пробел или 1 — отметка. Для полного списка есть кнопка «Скопировать».";
       renderClickable(lastVisible);
     }
+    function syncFontMode() {
+      document.documentElement.classList.toggle("legacy-fonts", !siteFontsSetting.checked);
+    }
     function applySnapshot(state) {
       restoringHistory = true;
       if (timer !== null) { clearTimeout(timer); timer = null; }
@@ -515,6 +542,8 @@
       quoteSetting.checked = state.quote;
       frequencyMode.checked = Boolean(state.frequencyMode);
       copyFrequencySetting.checked = state.copyFrequency !== false;
+      siteFontsSetting.checked = state.siteFonts !== false;
+      syncFontMode();
       syncClickableView();
       recalculate();
       wordsScroll.edited();
@@ -647,7 +676,8 @@
           dash: dashSetting.checked,
           quote: quoteSetting.checked,
           frequencyMode: frequencyMode.checked,
-          copyFrequency: copyFrequencySetting.checked
+          copyFrequency: copyFrequencySetting.checked,
+          siteFonts: siteFontsSetting.checked
         }
       };
     }
@@ -683,6 +713,8 @@
       quoteSetting.checked = Boolean(settings.quote);
       frequencyMode.checked = Boolean(settings.frequencyMode);
       copyFrequencySetting.checked = settings.copyFrequency !== false;
+      siteFontsSetting.checked = settings.siteFonts !== false;
+      syncFontMode();
       sourceCache.value = null;
       lastRenderedClickable = null;
       syncPageTitle();
@@ -1615,6 +1647,10 @@
       storeHistory("action", "setting");
     });
     copyFrequencySetting.addEventListener("change", () => {
+      storeHistory("action", "setting");
+    });
+    siteFontsSetting.addEventListener("change", () => {
+      syncFontMode();
       storeHistory("action", "setting");
     });
     undoButton.addEventListener("click", undo);
