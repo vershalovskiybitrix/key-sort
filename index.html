@@ -146,6 +146,18 @@
     .site-footer { width: min(1200px, calc(100% - 40px)); margin: 0 auto; padding: 8px 0 28px; color: #555; font-size: 12px; text-align: right; }
     .group-lists { margin: 16px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
     .group-list { background: transparent; border: 1px solid #aaa; min-width: 0; }
+    .lemma-frequency-block { grid-column: 1; grid-row: span 2; align-self: start; background: transparent; border: 1px solid #aaa; min-width: 0; }
+    .lemma-frequency-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 55px; padding: 8px 10px; border-bottom: 1px solid #aaa; font-weight: 700; }
+    .lemma-frequency-items { max-height: 1060px; overflow: auto; background: #fff; }
+    .lemma-frequency-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px; min-height: 26px; border-bottom: 1px solid #ddd; font-size: 14px; line-height: 1.1; }
+    .lemma-frequency-row:last-child { border-bottom: 0; }
+    .lemma-frequency-columns { position: sticky; top: 0; z-index: 2; min-height: 30px; background: #efefed; font-size: 12px; font-weight: 700; }
+    .lemma-frequency-word { min-width: 0; border: 0; border-radius: 0; padding: 5px 10px; background: transparent; color: #000; font: 400 14px/1.1 Arial, sans-serif; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+    .lemma-frequency-word:hover { background: #ddd; text-decoration: underline; }
+    .lemma-frequency-word:focus-visible { outline: 2px solid #000; outline-offset: -2px; }
+    .lemma-frequency-label { padding: 5px 10px; }
+    .lemma-frequency-count { padding: 5px 10px; border-left: 1px solid #ddd; text-align: right; font-variant-numeric: tabular-nums; }
+    .lemma-frequency-empty { padding: 14px; color: #777; font-size: 13px; }
     .group-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 55px; padding: 8px 10px; border-bottom: 1px solid #aaa; font-weight: 700; }
     .group-list-items { max-height: 530px; overflow: auto; background: #fff; }
     .group-list-item { display: flex; align-items: start; gap: 10px; padding: 5px 10px; border-bottom: 1px solid #ddd; font-size: 14px; line-height: 1.1; }
@@ -175,6 +187,7 @@
       .header-actions { margin-left: 0; align-self: start; }
       .clickable-results { height: 320px; flex: initial; }
       .group-lists { grid-template-columns: minmax(0, 1fr); }
+      .lemma-frequency-block { grid-column: auto; grid-row: auto; }
       .result-panel { grid-column: auto; }
     }
     @media(max-width: 639px) {
@@ -300,7 +313,17 @@
       </div>
     </div>
 
-    <section class="group-lists" id="groupLists" aria-label="Распределённые по группам запросы"></section>
+    <section class="group-lists" id="groupLists" aria-label="Частотность слов и распределённые по группам запросы">
+      <article class="lemma-frequency-block" id="lemmaFrequencyBlock">
+        <div class="lemma-frequency-head">
+          <span>Частотность слов</span>
+          <button type="button" class="field-button" id="refreshLemmaFrequency" title="Пересчитать частотность слов">↻ Обновить</button>
+        </div>
+        <div class="lemma-frequency-items" id="lemmaFrequencyItems" aria-live="polite">
+          <div class="lemma-frequency-empty">Нажмите «Обновить»</div>
+        </div>
+      </article>
+    </section>
     <section class="group-add-section" aria-label="Добавление группы">
       <div id="groupChips" hidden></div>
       <form class="group-add" id="groupAddForm">
@@ -376,6 +399,7 @@
     let morphAvailable = true;
     let saveTimer = null;
     let databasePromise = null;
+    let lemmaFrequencyPending = false;
 
     // История хранится только в памяти открытой страницы. Отдельные нажатия на
     // поисковые слова, вставки, очистки и переключатели — самостоятельные шаги.
@@ -571,6 +595,7 @@
       } finally {
         morphLoading = false;
         updateMorphStatus();
+        if (lemmaFrequencyPending && !morphQueued.size) refreshLemmaFrequency();
       }
     }
 
@@ -1048,6 +1073,12 @@
       wordsScroll.edited();
       scheduleRecalculate();
     }
+    function addNegativeWord(word) {
+      rawWords += (rawWords && !/[\s,;]$/u.test(rawWords) ? " " : "") + word;
+      if (cleanSetting.checked) rawWords = cleanWordText(rawWords);
+      setWordsFromCanonical();
+      storeHistory("action", "click");
+    }
     function renderNegativeWordList(words) {
       const root = $("negativeWordList");
       const items = Array.from(words, word => {
@@ -1076,6 +1107,76 @@
       if (cleanSetting.checked) rawWords = cleanWordText(rawWords, true);
       setWordsFromCanonical();
       storeHistory("action", "remove-word");
+    }
+    function lemmaFrequencyMessage(text) {
+      const message = document.createElement("div");
+      message.className = "lemma-frequency-empty";
+      message.textContent = text;
+      return message;
+    }
+    function invalidateLemmaFrequency() {
+      if (lemmaFrequencyPending) return;
+      $("lemmaFrequencyItems").replaceChildren(lemmaFrequencyMessage("Нажмите «Обновить»"));
+    }
+    function renderLemmaFrequency() {
+      const counts = new Map();
+      for (const line of lastRemaining) {
+        const inQuery = new Map();
+        for (const word of getWords(queryPhrase(line))) {
+          const normalized = normalizedWord(word);
+          const analysis = morphCache.get(normalized);
+          const key = analysis?.key || `word:${normalized}`;
+          if (!inQuery.has(key)) inQuery.set(key, analysis?.lemma || normalized);
+        }
+        for (const [key, lemma] of inQuery) {
+          const current = counts.get(key);
+          if (current) current.count++;
+          else counts.set(key, { lemma, count: 1 });
+        }
+      }
+      const sorted = Array.from(counts.values()).sort((a, b) => b.count - a.count || a.lemma.localeCompare(b.lemma, "ru"));
+      const items = $("lemmaFrequencyItems");
+      if (!sorted.length) {
+        items.replaceChildren(lemmaFrequencyMessage("Нераспределённых запросов нет"));
+      } else {
+        const header = document.createElement("div");
+        header.className = "lemma-frequency-row lemma-frequency-columns";
+        const wordHead = document.createElement("div");
+        wordHead.className = "lemma-frequency-label";
+        wordHead.textContent = "Слово";
+        const countHead = document.createElement("div");
+        countHead.className = "lemma-frequency-count";
+        countHead.textContent = "Запросов";
+        header.append(wordHead, countHead);
+        const rows = sorted.map(entry => {
+          const row = document.createElement("div");
+          row.className = "lemma-frequency-row";
+          const word = document.createElement("button");
+          word.type = "button";
+          word.className = "lemma-frequency-word";
+          word.dataset.word = entry.lemma;
+          word.textContent = entry.lemma;
+          word.title = `Добавить «${entry.lemma}» в минус-слова`;
+          const count = document.createElement("div");
+          count.className = "lemma-frequency-count";
+          count.textContent = formatter.format(entry.count);
+          row.append(word, count);
+          return row;
+        });
+        items.replaceChildren(header, ...rows);
+      }
+      lemmaFrequencyPending = false;
+      $("refreshLemmaFrequency").disabled = false;
+    }
+    function refreshLemmaFrequency() {
+      if (morphAvailable && (morphLoading || morphQueued.size)) {
+        lemmaFrequencyPending = true;
+        $("refreshLemmaFrequency").disabled = true;
+        $("lemmaFrequencyItems").replaceChildren(lemmaFrequencyMessage("Ожидание морфологии…"));
+        if (!morphLoading) void flushMorphology();
+        return;
+      }
+      renderLemmaFrequency();
     }
     function setPhrasesFromCanonical() {
       phrasesInput.value = quoteSetting.checked ? formatPhrases(rawPhrases) : rawPhrases;
@@ -1184,7 +1285,7 @@
     }
     function renderGroupLists(lines) {
       const root = $("groupLists");
-      root.replaceChildren(...groups.map(group => {
+      root.replaceChildren($("lemmaFrequencyBlock"), ...groups.map(group => {
         const block = document.createElement("article");
         block.className = "group-list";
         const grouped = lines.filter(line => assignedGroup(line) === group.id);
@@ -1365,6 +1466,7 @@
       const unassigned = remaining.filter(line => !assignedGroup(line));
       lastRemaining = unassigned;
       lastVisible = visibleByLength(unassigned);
+      invalidateLemmaFrequency();
       // Опции меняют только отображение; базовая минусация остаётся прежней.
       renderClickable(lastVisible);
       renderGroupLists(remaining);
@@ -1420,6 +1522,11 @@
     $("negativeWordList").addEventListener("click", event => {
       const button = event.target.closest(".negative-word-item");
       if (button) removeNegativeWord(button.dataset.word);
+    });
+    $("refreshLemmaFrequency").addEventListener("click", refreshLemmaFrequency);
+    $("lemmaFrequencyItems").addEventListener("click", event => {
+      const button = event.target.closest(".lemma-frequency-word");
+      if (button) addNegativeWord(button.dataset.word);
     });
     phrasesInput.addEventListener("input", updatePhrasesFromInput);
     phrasesInput.addEventListener("focus", scheduleRecalculate);
@@ -1572,11 +1679,7 @@
       resultPointerGesture = null;
       const span = e.target.closest(".clickable-word");
       if (!clickSetting.checked || !span || dragged) return;
-      const word = span.dataset.word;
-      rawWords += (rawWords && !/[\s,;]$/u.test(rawWords) ? " " : "") + word;
-      if (cleanSetting.checked) rawWords = cleanWordText(rawWords);
-      setWordsFromCanonical();
-      storeHistory("action", "click");
+      addNegativeWord(span.dataset.word);
     });
 
     // Копирование результатов учитывает текущие Опции отображения,
