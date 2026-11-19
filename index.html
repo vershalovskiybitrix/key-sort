@@ -142,8 +142,8 @@
     .group-add { display: flex; justify-content: flex-end; gap: 8px; }
     .group-add input { width: 260px; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 10px; font: 13px/1.2 var(--font-body); background: #fff; }
     .query-grid { min-width: 100%; width: max-content; }
-    .query-row { display: grid; grid-template-columns: var(--group-columns) minmax(430px, 1fr); height: 24px; min-height: 24px; overflow: hidden; border-bottom: 1px solid #e1e1df; }
-    .query-grid.with-frequency .query-row { grid-template-columns: var(--group-columns) minmax(430px, 1fr) 120px; }
+    .query-row { display: grid; grid-template-columns: var(--group-columns) minmax(430px, 1fr) 72px; height: 24px; min-height: 24px; overflow: hidden; border-bottom: 1px solid #e1e1df; }
+    .query-grid.with-frequency .query-row { grid-template-columns: var(--group-columns) minmax(430px, 1fr) 72px 120px; }
     .query-row:last-child { border-bottom: 0; }
     .query-row-header { position: sticky; top: 0; z-index: 3; height: 30px; min-height: 30px; background: #efefed; font-weight: 700; border-bottom: 1px solid #aaa; }
     .group-head, .group-cell { width: 42px; display: grid; place-items: center; border-right: 1px solid #ddd; }
@@ -153,6 +153,12 @@
     .group-cell[aria-checked="true"]::after { content: "✓"; display: grid; place-items: center; color: #000; background: #ddd; border-color: #000; font-size: 12px; }
     .group-cell:focus { position: relative; z-index: 2; outline: 3px solid #111; outline-offset: -3px; }
     .query-text { min-width: 430px; padding: 4px 10px; white-space: nowrap; }
+    .query-search-actions { width: 72px; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 2px 4px; border-left: 1px solid #ddd; }
+    .query-search-actions-head { font-size: 11px; }
+    .query-search-link { width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid #aaa; background: #fff; }
+    .query-search-link img { width: 14px; height: 14px; display: block; filter: grayscale(1) contrast(0) brightness(.72); }
+    .query-search-link:hover img, .query-search-link:focus-visible img { filter: none; }
+    .query-search-link:focus-visible { outline: 2px solid #000; outline-offset: -1px; }
     .query-virtual-spacer { width: 1px; }
     .query-frequency { width: 120px; padding: 4px 10px; border-left: 1px solid #ddd; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .project-actions { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
@@ -374,6 +380,23 @@
     const phrasesInput = $("negativePhrases");
     const clickableOutput = $("clickableResults");
     const formatter = new Intl.NumberFormat("ru-RU");
+    const SEARCH_TARGETS = [
+      {
+        name: "Google",
+        baseUrl: "https://www.google.com/search?q=",
+        icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAARHSURBVFhHvZddbBRVFMf7YrAq+OSbD6Kgb0qUUh60xq9VtA8k1EJrH1CsGIM+GLUmBA0kFi0WSMCHLcVCTMO2GmjFCiUFpH60sUjMEtIGLaAWama32w92dt2vOf7PndPd3M7sdmobf8k/M/fec8//zJ07s7NFXrEsawlUnclkmqEBaAxKisLS14yYKo6VafMHyR5A4hYoTh5BbAw6iLnLJc3cQZ7bkKQRSttp5w7mpqBdKKRY0noDE+7HxEuSZ94gVxA5l0n6wiDwYUwIyVyN9I0RMls/p4l33qDwi8+R4VtNxjOlFF7no/G3XyfzcBOlR/6UaB3kNHBYITbuyJU7zNOj12ly+/tkPL2KjKdKCgsxkx++p+bMhIvIuxIYuB0BjmWPn+qi0Atl7mYFFCp/nP45e0qy5IAH3w7nnsBAo8RkMY8cck3uVVMN2yWTDrwaxNYGFfGjpu12vnK3pKxIbRVFD+yj+DdHKd51DOf7KfJatRYztbueyLIkmw68UtqtQEeLjCl4s4Wef0xLyBqrWUuJ8/0S5SQx0EfhDeV0c/+n0pMfeDYrc5zfiYb2konufdNhPr7lZbKmpiQiP5YZlbPCwNPEKizm5a+WPoUVG6ZU9yKarLsna86PXGYiIhELB7zX8/I3S1uRuVpPqZ5blMx9d1FozUqKnzwuowsLvP1cwIC0FelffNkCWImjS4lSKRldWODdzwWMSVuR6r1bKyB9sUpG3Hnyo6hnnb2kXwi8DS4gKW1F6vQirYDM79tkxB03o3xq/VGz4gIS/2sBLecSMstmuoCwtBWOWxDcICPuuBnlU3u/YwXULdA34YVntQJGeh+kZGbum/CKkXEUcG7QsQfUJpzxGH6cNT/etZQeDayljuEeGfVOoC/pKGB0Qn81w9vPLyJtm1uxqxTrKab6jkdoZWCdkq/jFQrHxyVidm7GLarYa2rmG/0xGc0B70ouYAkq0Ub39O3Imk+rpvtdmkjM/ipO4iet7khcM2e1Oe+/icMd6vcAjYN2t82NqEFlX73kKKL8683Ue/28RDm5PH6NNnUGYDipmfNqxBKO5W9S5gxWYTk6tB1y4lqvo4BpVXz7FjVeaKH2yyfoy99O0mfBVnq1ZyuVBCrUeOmhOnrik7+yBXw/pH/XwisJz/vE3gadu2Q8yxdDnQ5zrypp3Uhlu392PPsMvHaKbQ7082f4RTskR/cfP+B21LiaFFJpWyUdCHZKlhzw+BWHW8VWB8uyDAH89aoxaoZo6097aFWbvcSzafOZD2gwMiyzcyD33zjcK3buIGCFWxEMb87Dg8doy3c7aE1nLa1ur1RX6uvYRLWnt6m9MBS5ItE6bI4LfEhsCiMrEZS58wa5eNkLX/lMUEQxJjZA//ljAHP5j+tOnLrfcy/IavA/Yn5xeIJjoSbM1R+1+YBki6H1SOyH+iEDSoj4nPv8iKlEDfYbblaKiv4FoeF/NqqvoEMAAAAASUVORK5CYII="
+      },
+      {
+        name: "Яндекс",
+        baseUrl: "https://ya.ru/search/?text=",
+        icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAQlSURBVGhDzVg7bhRBEPVFiLkCEidAIkMiJiAmIeUCxByBI5ATkhKRECNxAIdmPe7XW2/2zZuqnlm8tvykUlXXv7erewxX98Xty2eT8y2C35NA1hzo5vXzIVeKVI8PNpA1541mNvcBReqHA4uAeyPeENaZLlurvhd6CLAAaU8zvt7joxSl7w8mRKE9DZFG9szmuih/P3hyl10Hnvk6d3tmI0Ur5wPBVQHKVdFKTxrl5Zo82jkPTKiJXHad21xfcZcrita2sVUgsytBD/r39sV0+PCmpNt3r1Y5NLfK4NHeGEykgdVadeDT54/T9P3bdPj7Z5pxuJmm6+uTLOvbnz8WOVzOKNrMQSdPkhVY6D69n6bfv46NocG9aDGe19fgaotWc3ggg7I1dYevX85rGuBJtA1o3qq266LdNTSA5Mm0SP/lORK2CYwRRgQjNRMRvlsj1GsUtmj5BA+oAlXXZ53zHei6dhc8Hhf66CAbLUbI61W2aP0IKpWyQPJ+YZNfHY16DKhvwDaLE8hqZGu3Rdvri1sl8WR9JHQDkO2X17j5BAS+AfXP1m6LLax//SpI5f7qGPjr00/9sw3seYV8rfq5+czoCVy/eOuBNh5ZDHWrDeDEilcoW2dy3wBAgxorTlqcAJppNIqpRijz17hKJpUnsLnGE5ncAfUHMWZrhNxfa7ms69UlHslcg/oHjOBG2sXWGI2tTiDzJamuktPxUdn5TO0Psewe+Ckw7hIjpET9YoRcHq3BF19XApe5faE9rm9ARw5IRog0qqv64QiNdOBoanEK0SB0GDH40L/aQJYX3GUl9S1HaM8a1P+291EC2klgRNA4/BYbCM4RAmnuTHZO2v2PF18rLzcBxL3oG1BAP/gOqOyktsV3IEvg3GVSb9C/DQQ3YCOkrxApq1Nx0OYlrihN2hpaIZ7W1Qm0zegGtG6mc4Kt//oAFe7giZwr9e8CxkKAsaJv3wDsOAW5A5ory+s11Sfaz0dopFM9+Nycoq3xnC58FBsnoGsn2qL90/9CqDHTuTyvB6NDWmwgNou4RR7xV51zULR+wijBSM5Gh68L/cBXJwAUr1Cmy9bR+hFqrBKs5PbnxKr5hvJLTF85gd21TBdtn+DOvk71GB17GnV0NDY7gWqENI46tUXLa7ijctdXr04WA6ruQFWH5PZotUaWyJOgGf/y9iczXp0qZgGcXLsD9PcYyhlFqzng4MWVmBwNOVUxpHNiqHMebY7BJAzUAufIzrfkzF8p2tsHDfTEWqCSM53bM3/VK4+29qNKDnKbrrVopTvXFi2dj1HSkTzSkSqb66OV/4cmI7GIF8v0rhvZlKCLFi6HrBCLjdZOVcPKo+Tl4YVImd51I5vKUerhUDWQrV1X2SP14wGFydmEy1Xjbu8JnwLQELk3S7k7XgxXV3fXcJImhVdgHgAAAABJRU5ErkJggg=="
+      },
+      {
+        name: "Яндекс Wordstat",
+        baseUrl: "https://wordstat.yandex.ru/?region=0&view=table&words=",
+        icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAMzSURBVHgB3Zq/TxNhGMe/z12LiSHaQRKcKIkMBhMhbsbqsTrJpAYGWXSEUSfawc2h/AEqQzFGjbLJpBfqjzgokGgcJPHAARONHlJMBNvX532vkJZfuSsn9x6fpNde772DD8/Tex/6vASfiH7Lgih3QVCa99pA6jmlDhJSEEihEQgun+tW9xzvh9EMSDggc5oKtu3vMjsgrlgprFQGYYihhn/R3ePww0bSzNGo7Ww3aFsR0X92kLfZCAU2IyhL9yZzWx3aJKKisFp+wi8t6IjAOJrMAY6OW/t2nUhVwuaXJ6E1NI2k0VMrY9Qd/1u+C+0lJKKrmjXrrIvwZ2KYw3YB8cESlzNDazsqtTil0mz4GfHD5btZu0wxLyKr5SziiZweVFTWUusc4gqJQe/Jm7GfIyiFSQTm4xQwOQEUnyJUSPQYquzYK453A9duAPkHQMtRhIagLsOrmfaYI63AzdvhyXD9xxER0cwbB5uBq9cRDiJtIEpkqsnHbiFqkyJpREnbMewekYo2IpKWVoSBFIm2TF8uIQRS0YvMzSIEIk6t7wvA2yLCIFqRiUcIi+hEHvO/PhMPERYJ7DW/l1hiNFQJSeMi8i8aBHl3mp/1Csf/AIm+jMA+oPGIdJ9GaKz8AZYWgR/fgNIiGkEPkVo+vQemXgcWir5E2UjHCeD8RaD5cKDT9BORNB/yZJoO+D5FTxGJlOk85Xu4viKSjk7fQ/UWkZ8Tn+klRVzojD8RV3+R0i8/o1y9U2vhi++hLEL6RmTqld+RDouIOejIh3fA1yARIXKgG1LizTP/47l5muAv6BzogCwcF+YDR0LBHeAEb6bZCIG5cwvawA5eo6cv8xNRf5vSOA6NFdu92y/RCOKLLTeeSMLIQ/eJcTvKpuq7KxGvzVvJIW4IkaP73mqI+j57X0Z2rizEAcI4FYq9a7v1JUrS7FXNeP2ZQckcqH2jTkSlWNLokbbQFxvLpkXjOyzhqEX0n8ny/DIMXVDLoSo5GnuZ3/rwDohLVhqm6sHL9nUaUSAFIEZQSuQ3RqF+mE84QpbsnqqFZ7Ted0xXrxLSwjOuxOWCswrNeQvPeMYuvLD9XOYfzHAHyu04rD0AAAAASUVORK5CYII="
+      }
+    ];
     const settingsButton = $("settingsButton");
     const settingsMenu = $("settingsMenu");
     const settingsRoot = $("settingsRoot");
@@ -1601,6 +1624,10 @@
       phraseHead.className = "query-text";
       phraseHead.textContent = "Поисковый запрос";
       header.append(phraseHead);
+      const searchHead = document.createElement("div");
+      searchHead.className = "query-search-actions query-search-actions-head";
+      searchHead.textContent = "Поиск";
+      header.append(searchHead);
       if (frequencyMode.checked) {
         const frequencyHead = document.createElement("div");
         frequencyHead.className = "query-frequency";
@@ -1649,6 +1676,23 @@
         }
         if (last < parsed.phrase.length) text.append(document.createTextNode(parsed.phrase.slice(last)));
         row.append(text);
+        const searchActions = document.createElement("div");
+        searchActions.className = "query-search-actions";
+        for (const target of SEARCH_TARGETS) {
+          const link = document.createElement("a");
+          link.className = "query-search-link";
+          link.href = target.baseUrl + encodeURIComponent(parsed.phrase);
+          link.target = "_blank";
+          link.rel = "noreferrer noopener";
+          link.title = `Искать «${parsed.phrase}» в ${target.name}`;
+          link.setAttribute("aria-label", link.title);
+          const icon = document.createElement("img");
+          icon.src = target.icon;
+          icon.alt = "";
+          link.append(icon);
+          searchActions.append(link);
+        }
+        row.append(searchActions);
         if (frequencyMode.checked) {
           const frequency = document.createElement("div");
           frequency.className = "query-frequency";
