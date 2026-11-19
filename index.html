@@ -139,8 +139,9 @@
     .clickable-word { cursor: pointer; border-radius: 0; }
     .clickable-word:hover { background: #ddd; color: #000; text-decoration: underline; }
     .clickable-results:focus { outline: 0; border-color: #000; box-shadow: none; }
-    .group-add { display: flex; justify-content: flex-end; gap: 8px; }
-    .group-add input { width: 260px; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 10px; font: 13px/1.2 var(--font-body); background: #fff; }
+    .group-add { width: 100%; min-width: 0; display: flex; justify-content: flex-end; gap: 8px; }
+    .group-add input { width: auto; min-width: 0; flex: 1 1 0; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 10px; font: 13px/1.2 var(--font-body); background: #fff; }
+    .group-add .field-button { flex: 0 0 auto; }
     .query-grid { min-width: 100%; width: max-content; }
     .query-row { display: grid; grid-template-columns: var(--group-columns) minmax(430px, 1fr) 72px; height: 24px; min-height: 24px; overflow: hidden; border-bottom: 1px solid #e1e1df; }
     .query-grid.with-frequency .query-row { grid-template-columns: var(--group-columns) minmax(430px, 1fr) 72px 120px; }
@@ -199,7 +200,7 @@
     .group-delete { width: 64px; }
     .group-copy { width: 92px; }
     .group-rename-input { width: 100%; height: 30px; border: 1px solid #888; padding: 0 7px; font: 400 14px/1 var(--font-body); background: #fff; }
-    .group-add-section { display: flex; justify-content: flex-end; align-self: start; }
+    .group-add-section { width: 100%; min-width: 0; display: flex; justify-content: flex-end; align-self: start; }
     .result-panel { grid-column: span 2; }
     @media(max-width: 780px) {
       .app-header { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
