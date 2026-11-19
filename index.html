@@ -446,6 +446,8 @@
     let databasePromise = null;
     let lemmaFrequencyPending = false;
     let lemmaFrequencyHasResult = false;
+    let pendingQueryDeduplication = null;
+    let pendingNegativeWordNormalization = null;
 
     // История хранится только в памяти открытой страницы. Отдельные нажатия на
     // поисковые слова, вставки, очистки и переключатели — самостоятельные шаги.
@@ -670,6 +672,84 @@
     }
     const morphKey = word => morphCache.get(normalizedWord(word))?.key || `word:${normalizedWord(word)}`;
 
+    function queryDuplicateKey(line) {
+      const keys = getWords(queryPhrase(line)).map(morphKey).sort();
+      return `${keys.length}:${keys.join("\u0000")}`;
+    }
+    function mergeAutomaticNormalizationIntoHistory(field, previousValue) {
+      if (historyIndex >= 0 && history[historyIndex]?.[field] === previousValue) {
+        history[historyIndex] = snapshot();
+        lastEdit = null;
+        syncHistoryButtons();
+        scheduleSave();
+      } else {
+        storeHistory("action", field);
+      }
+    }
+    function deduplicateQueries(source) {
+      if (queriesInput.value !== source) return;
+      const lines = source.split(/\r?\n/u).map(line => line.trim()).filter(Boolean);
+      const seen = new Set();
+      const unique = [];
+      for (const line of lines) {
+        const key = queryDuplicateKey(line);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        unique.push(line);
+      }
+      if (unique.length === lines.length) return;
+      queriesInput.value = unique.join("\n");
+      refreshSourceCache();
+      recalculate();
+      mergeAutomaticNormalizationIntoHistory("queries", source);
+    }
+    function normalizeNegativeWordList(source, displayedSource) {
+      if (rawWords !== source || wordsInput.value !== displayedSource) return;
+      const seen = new Set();
+      const normalized = [];
+      for (const part of source.split(/[\s,;]+/u)) {
+        if (!part) continue;
+        const match = part.match(/^(-*)([\p{L}\p{N}]+(?:\.[0-9]+)?)$/u);
+        if (!match) {
+          normalized.push(part);
+          continue;
+        }
+        const word = normalizedWord(match[2]);
+        const analysis = morphCache.get(word);
+        const key = analysis?.key || `word:${word}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        normalized.push(`${match[1] ? "-" : ""}${analysis?.lemma || word}`);
+      }
+      const next = normalized.join(" ");
+      if (next === source) return;
+      rawWords = next;
+      setWordsFromCanonical();
+      mergeAutomaticNormalizationIntoHistory("words", displayedSource);
+    }
+    function processPendingInputNormalization() {
+      if (morphLoading || morphQueued.size) return;
+      const querySource = pendingQueryDeduplication;
+      const negativeSource = pendingNegativeWordNormalization;
+      pendingQueryDeduplication = null;
+      pendingNegativeWordNormalization = null;
+      if (querySource !== null) deduplicateQueries(querySource);
+      if (negativeSource !== null) normalizeNegativeWordList(negativeSource.raw, negativeSource.displayed);
+    }
+    function requestQueryDeduplication() {
+      const source = queriesInput.value;
+      pendingQueryDeduplication = source;
+      queueMorphology(getWords(source.split(/\r?\n/u).map(queryPhrase).join("\n")));
+      if (!morphLoading && !morphQueued.size) queueMicrotask(processPendingInputNormalization);
+    }
+    function requestNegativeWordNormalization() {
+      const displayed = wordsInput.value;
+      const source = rawWords;
+      pendingNegativeWordNormalization = { raw: source, displayed };
+      queueMorphology(getNegativeWords(source, []));
+      if (!morphLoading && !morphQueued.size) queueMicrotask(processPendingInputNormalization);
+    }
+
     function queueMorphology(words) {
       if (!morphAvailable) return;
       for (const source of words) {
@@ -712,6 +792,7 @@
       } finally {
         morphLoading = false;
         if (lemmaFrequencyPending && !morphQueued.size) refreshLemmaFrequency();
+        if (!morphQueued.size) processPendingInputNormalization();
       }
     }
 
@@ -1255,6 +1336,7 @@
       wordsScroll.edited();
       scheduleRecalculate();
       storeTextEdit("words", e);
+      if (e && (e.inputType === "insertFromPaste" || e.inputType === "insertFromDrop")) requestNegativeWordNormalization();
     }
     function updatePhrasesFromInput(e) {
       const displayed = phrasesInput.value;
@@ -1790,6 +1872,7 @@
       refreshSourceCache();
       scheduleRecalculate();
       storeTextEdit("queries", e);
+      if (e.inputType === "insertFromPaste" || e.inputType === "insertFromDrop") requestQueryDeduplication();
     });
     wordsInput.addEventListener("input", updateWordsFromInput);
     wordsInput.addEventListener("click", event => {
@@ -1840,7 +1923,9 @@
         setWordsFromCanonical();
         storeHistory("action", "words");
       }
+      requestNegativeWordNormalization();
     });
+    queriesInput.addEventListener("blur", requestQueryDeduplication);
     // В режиме авто-кавычек Enter и запятая завершают текущую фразу,
     // а не попадают внутрь автоматически сформированных кавычек.
     phrasesInput.addEventListener("keydown", e => {
