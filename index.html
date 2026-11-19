@@ -154,7 +154,6 @@
     .query-text { min-width: 430px; padding: 4px 10px; white-space: nowrap; }
     .query-virtual-spacer { width: 1px; }
     .query-frequency { width: 120px; padding: 4px 10px; border-left: 1px solid #ddd; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .morph-status { font-size: 11px; color: var(--muted); margin-left: auto; }
     .project-actions { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
     .file-input { display: none; }
     .save-status { width: 120px; align-self: center; color: var(--muted); font-size: 11px; line-height: 1.2; text-align: right; }
@@ -194,7 +193,6 @@
     .group-copy { width: 92px; }
     .group-rename-input { width: 100%; height: 30px; border: 1px solid #888; padding: 0 7px; font: 400 14px/1 var(--font-body); background: #fff; }
     .group-add-section { display: flex; justify-content: flex-end; align-self: start; }
-    .result-status { min-height: 18px; margin: 0 0 8px; display: flex; justify-content: flex-end; }
     .result-panel { grid-column: span 2; }
     @media(max-width: 780px) {
       .app-header { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
@@ -288,7 +286,6 @@
           <div class="metric shown" id="shownMetric" hidden><small>После фильтра</small><strong id="shownCount">0</strong></div>
         </div>
       </div>
-      <div class="result-status"><span class="morph-status" id="morphStatus">Морфология: подготовка</span></div>
       <div id="clickableResults" class="clickable-results" tabindex="0" role="region" aria-label="Оставшиеся поисковые запросы — нажмите на слово, чтобы отминусовать" hidden></div>
       <div class="bottom-help" id="resultCopyHelp">Скопируй весь список кнопкой сверху или выдели текст вручную.</div>
       <div id="warning" class="warning" role="status"></div>
@@ -637,20 +634,12 @@
     const normalizedWord = word => word.normalize("NFC").toLocaleLowerCase("ru-RU");
     const morphKey = word => morphCache.get(normalizedWord(word))?.key || `word:${normalizedWord(word)}`;
 
-    function updateMorphStatus() {
-      const status = $("morphStatus");
-      if (!morphAvailable) status.textContent = "Морфология недоступна — точное совпадение";
-      else if (morphRetryTimer !== null) status.textContent = "Морфология временно недоступна — повторный запрос";
-      else if (morphLoading || morphQueued.size) status.textContent = `Морфология: обработка (${formatter.format(morphQueued.size)})`;
-      else status.textContent = `Морфология: готова (${formatter.format(morphCache.size)})`;
-    }
     function queueMorphology(words) {
       if (!morphAvailable) return;
       for (const source of words) {
         const word = normalizedWord(source);
         if (/[а-яё]/iu.test(word) && !morphCache.has(word)) morphQueued.add(word);
       }
-      updateMorphStatus();
       if (!morphLoading && morphQueued.size) void flushMorphology();
     }
     function scheduleMorphologyRetry() {
@@ -660,12 +649,10 @@
         void flushMorphology();
       }, morphRetryDelay);
       morphRetryDelay = Math.min(morphRetryDelay * 2, 30000);
-      updateMorphStatus();
     }
     async function flushMorphology() {
       if (morphLoading || !morphQueued.size || !morphAvailable) return;
       morphLoading = true;
-      updateMorphStatus();
       let currentBatch = [];
       try {
         while (morphQueued.size) {
@@ -688,7 +675,6 @@
         scheduleMorphologyRetry();
       } finally {
         morphLoading = false;
-        updateMorphStatus();
         if (lemmaFrequencyPending && !morphQueued.size) refreshLemmaFrequency();
       }
     }
@@ -1269,7 +1255,6 @@
           const data = await response.json();
           analysis = data.analyses?.[word] || null;
           if (analysis) morphCache.set(word, analysis);
-          updateMorphStatus();
         } catch (_) {
           analysis = null;
           morphQueued.add(word);
@@ -2110,7 +2095,6 @@
       history = [snapshot()];
       historyIndex = 0;
       syncHistoryButtons();
-      updateMorphStatus();
     }
     void initialize();
   })();
