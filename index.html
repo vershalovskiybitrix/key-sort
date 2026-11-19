@@ -156,8 +156,8 @@
     .query-text { min-width: 430px; padding: 4px 10px; white-space: nowrap; }
     .query-search-actions { width: 72px; display: flex; align-items: center; justify-content: center; gap: 3px; padding: 2px 4px; border-left: 1px solid #ddd; }
     .query-search-actions-head { font-size: 11px; }
-    .query-search-link { width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid #aaa; background: #fff; }
-    .query-search-link img { width: 14px; height: 14px; display: block; filter: grayscale(1) contrast(0) brightness(.72); }
+    .query-search-link { width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid #aaa; background: transparent; }
+    .query-search-link img { width: 14px; height: 14px; display: block; filter: grayscale(1); }
     .query-search-link:hover img, .query-search-link:focus-visible img { filter: none; }
     .query-search-link:focus-visible { outline: 2px solid #000; outline-offset: -1px; }
     .query-virtual-spacer { width: 1px; }
@@ -396,7 +396,7 @@
       {
         name: "Яндекс Wordstat",
         baseUrl: "https://wordstat.yandex.ru/?region=0&view=table&words=",
-        icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAYAAAAeP4ixAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAMzSURBVHgB3Zq/TxNhGMe/z12LiSHaQRKcKIkMBhMhbsbqsTrJpAYGWXSEUSfawc2h/AEqQzFGjbLJpBfqjzgokGgcJPHAARONHlJMBNvX532vkJZfuSsn9x6fpNde772DD8/Tex/6vASfiH7Lgih3QVCa99pA6jmlDhJSEEihEQgun+tW9xzvh9EMSDggc5oKtu3vMjsgrlgprFQGYYihhn/R3ePww0bSzNGo7Ww3aFsR0X92kLfZCAU2IyhL9yZzWx3aJKKisFp+wi8t6IjAOJrMAY6OW/t2nUhVwuaXJ6E1NI2k0VMrY9Qd/1u+C+0lJKKrmjXrrIvwZ2KYw3YB8cESlzNDazsqtTil0mz4GfHD5btZu0wxLyKr5SziiZweVFTWUusc4gqJQe/Jm7GfIyiFSQTm4xQwOQEUnyJUSPQYquzYK453A9duAPkHQMtRhIagLsOrmfaYI63AzdvhyXD9xxER0cwbB5uBq9cRDiJtIEpkqsnHbiFqkyJpREnbMewekYo2IpKWVoSBFIm2TF8uIQRS0YvMzSIEIk6t7wvA2yLCIFqRiUcIi+hEHvO/PhMPERYJ7DW/l1hiNFQJSeMi8i8aBHl3mp/1Csf/AIm+jMA+oPGIdJ9GaKz8AZYWgR/fgNIiGkEPkVo+vQemXgcWir5E2UjHCeD8RaD5cKDT9BORNB/yZJoO+D5FTxGJlOk85Xu4viKSjk7fQ/UWkZ8Tn+klRVzojD8RV3+R0i8/o1y9U2vhi++hLEL6RmTqld+RDouIOejIh3fA1yARIXKgG1LizTP/47l5muAv6BzogCwcF+YDR0LBHeAEb6bZCIG5cwvawA5eo6cv8xNRf5vSOA6NFdu92y/RCOKLLTeeSMLIQ/eJcTvKpuq7KxGvzVvJIW4IkaP73mqI+j57X0Z2rizEAcI4FYq9a7v1JUrS7FXNeP2ZQckcqH2jTkSlWNLokbbQFxvLpkXjOyzhqEX0n8ny/DIMXVDLoSo5GnuZ3/rwDohLVhqm6sHL9nUaUSAFIEZQSuQ3RqF+mE84QpbsnqqFZ7Ted0xXrxLSwjOuxOWCswrNeQvPeMYuvLD9XOYfzHAHyu04rD0AAAAASUVORK5CYII="
+        icon: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAA5SURBVDhPY/j3799/SvBQNUBMDIKB7KFkAJIm/AYgK8QljsSGGIBDEgXjUIPfACLYowYMvAH//gMAApFOzueoXSAAAAAASUVORK5CYII="
       }
     ];
     const settingsButton = $("settingsButton");
