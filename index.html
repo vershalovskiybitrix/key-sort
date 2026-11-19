@@ -147,8 +147,8 @@
     .query-grid.with-frequency .query-row { grid-template-columns: var(--group-columns) minmax(430px, 1fr) 72px 120px; }
     .query-row:last-child { border-bottom: 0; }
     .query-row-header { position: sticky; top: 0; z-index: 3; height: 30px; min-height: 30px; background: #efefed; font-weight: 700; border-bottom: 1px solid #aaa; }
-    .group-head, .group-cell { width: 42px; display: grid; place-items: center; border-right: 1px solid #ddd; }
-    .group-head { font-size: 12px; }
+    .group-head, .group-cell { width: 24px; display: grid; place-items: center; border-right: 1px solid #ddd; }
+    .group-head { font-size: 11px; }
     .group-cell { appearance: none; margin: 0; padding: 0; border: 0; border-right: 1px solid #ddd; border-radius: 0; background: #fff; cursor: pointer; color: #000; font: 700 16px/1 var(--font-body); }
     .group-cell::after { content: ""; width: 15px; height: 15px; border: 1px solid #999; }
     .group-cell[aria-checked="true"]::after { content: "✓"; display: grid; place-items: center; color: #000; background: #ddd; border-color: #000; font-size: 12px; }
@@ -429,9 +429,9 @@
     let queryRows = [];
     let sourceCache = { value: null, rows: [] };
     let groups = [
-      { id: "hot", name: "Горячие", short: "Г" },
-      { id: "warm", name: "Тёплые", short: "Т" },
-      { id: "cold", name: "Холодные", short: "Х" }
+      { id: "hot", name: "Горячие", short: "ГО" },
+      { id: "warm", name: "Тёплые", short: "ТЁ" },
+      { id: "cold", name: "Холодные", short: "ХО" }
     ];
     let assignments = Object.create(null);
     const morphCache = new Map();
@@ -663,6 +663,9 @@
       queueMorphology(sourceCache.rows.flatMap(row => getWords(queryPhrase(row.line))));
     }
     const normalizedWord = word => word.normalize("NFC").toLocaleLowerCase("ru-RU");
+    function groupShortName(name) {
+      return (name.match(/[\p{L}\p{N}]/gu) || ["+"]).slice(0, 2).join("").toLocaleUpperCase("ru-RU");
+    }
     const morphKey = word => morphCache.get(normalizedWord(word))?.key || `word:${normalizedWord(word)}`;
 
     function queueMorphology(words) {
@@ -800,7 +803,7 @@
         }
         groupIds.add(group.id);
         const name = group.name.trim();
-        return { id: group.id, name, short: String(group.short || name).slice(0, 2).toLocaleUpperCase("ru-RU") };
+        return { id: group.id, name, short: groupShortName(name) };
       });
       const lines = source.queries.split(/\r?\n/u).map(line => line.trim()).filter(Boolean);
       if (lines.length > 100_000) throw new Error("Слишком много поисковых запросов");
@@ -1487,7 +1490,7 @@
           groups = groups.map(item => item.id === group.id ? {
             ...item,
             name,
-            short: (name.match(/[\p{L}\p{N}]/u)?.[0] || "+").toLocaleUpperCase("ru-RU")
+            short: groupShortName(name)
           } : item);
           lastRenderedClickable = null;
           recalculate();
@@ -1611,7 +1614,7 @@
       const grid = document.createElement("div");
       grid.className = "query-grid";
       if (frequencyMode.checked) grid.classList.add("with-frequency");
-      grid.style.setProperty("--group-columns", `repeat(${groups.length}, 42px)`);
+      grid.style.setProperty("--group-columns", `repeat(${groups.length}, 24px)`);
       const header = document.createElement("div");
       header.className = "query-row query-row-header";
       for (const group of groups) {
@@ -2047,7 +2050,7 @@
         groups = [...groups, {
           id: `group-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
           name,
-          short: (name.match(/[\p{L}\p{N}]/u)?.[0] || "+").toLocaleUpperCase("ru-RU")
+          short: groupShortName(name)
         }];
         input.value = "";
         lastRenderedClickable = null;
