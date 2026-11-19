@@ -692,9 +692,9 @@
     }
     function scheduleSave() {
       if (restoringHistory) return;
-      clearTimeout(saveTimer);
       $("saveStatus").textContent = "Есть несохранённые изменения";
-      saveTimer = setTimeout(() => void saveNow(), 500);
+      if (saveTimer !== null) return;
+      saveTimer = setTimeout(() => void saveNow(), 30000);
     }
     async function saveNow() {
       clearTimeout(saveTimer);
