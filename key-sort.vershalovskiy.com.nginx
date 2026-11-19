@@ -1,0 +1,50 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name key-sort.vershalovskiy.com;
+
+    location /.well-known/acme-challenge/ { root /var/www/html; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name key-sort.vershalovskiy.com;
+
+    ssl_certificate /etc/letsencrypt/live/key-sort.vershalovskiy.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/key-sort.vershalovskiy.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    root /opt/vershalovskiy.com/key-sort;
+    index index.html;
+    charset utf-8;
+    client_max_body_size 300k;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "same-origin" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+
+    location = /api/lemmatize {
+        limit_req zone=key_sort_api burst=30 nodelay;
+        limit_except POST { deny all; }
+        proxy_pass http://127.0.0.1:8815/lemmatize;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_read_timeout 20s;
+    }
+
+    location = /api/health {
+        limit_except GET { deny all; }
+        proxy_pass http://127.0.0.1:8815/health;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_read_timeout 5s;
+    }
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}

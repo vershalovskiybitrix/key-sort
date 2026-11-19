@@ -1,0 +1,1769 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Key Sort — сортировка поисковых запросов</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTgiIGZpbGw9IiMyNDRkYjciLz48cGF0aCBkPSJNMjQgMzJINDAiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #e9e9e8;
+      --border: #b9b9b7;
+      --text: #000;
+      --muted: #555;
+      --accent: #111;
+      --accent-pale: #ededec;
+      --danger: #000;
+      --success: #000;
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); }
+    main { width: min(1200px, calc(100% - 40px)); padding: 30px 0 24px; margin: 0 auto; }
+    .site-header { height: 120px; background: #e9e9e8; }
+    .site-header-inner { width: min(1200px, calc(100% - 40px)); height: 120px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+    .site-logo { display: block; width: 183px; height: 91px; flex: 0 0 183px; }
+    .site-logo img { display: block; width: 183px; height: 91px; object-fit: contain; }
+    .site-contacts { width: 404px; font-size: 20px; line-height: 1.55; color: #000; }
+    .site-contacts a { color: #000; text-decoration: none; border-bottom: 1px solid #e9e9e8; }
+    .app-header { display: grid; grid-template-columns: minmax(260px, 1fr) 200px auto auto; gap: 12px; align-items: end; margin-bottom: 16px; }
+    .header-title { flex: 1 1 auto; min-width: 0; }
+    .header-note { flex: 0 1 200px; min-width: 145px; }
+    .header-note input { width: 100%; height: 30px; border: 1px solid #999; border-radius: 0; padding: 0 12px; font: 14px/1.4 Arial, sans-serif; color: var(--text); background: #fff; outline: none; }
+    .header-note input::placeholder { color: #8290a6; }
+    .header-note input:focus { border-color: #000; box-shadow: none; }
+    h1 { font-size: 32px; font-weight: 700; margin: 0 0 5px; letter-spacing: 0; }
+    .subtitle { color: var(--muted); font-size: 15px; line-height: 1.45; }
+    .top-layout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; gap: 16px; }
+    .source-panel { margin-top: 16px; }
+    .source-panel .panel { width: 100%; }
+    .stack { display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 16px; min-height: 0; }
+    .stack .panel { display: flex; flex-direction: column; min-height: 0; }
+    .stack .panel textarea { flex: 1 1 auto; height: auto; }
+    .panel { border: 1px solid #aaa; box-shadow: none; background: transparent; border-radius: 0; padding: 18px; min-width: 0; }
+    .panel-head { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .panel-title { font-size: 16px; font-weight: 700; margin: 0 0 5px; }
+    .help { font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .count { display: inline-block; color: #333; font-size: 12px; background: #d7d7d5; white-space: nowrap; border-radius: 0; padding: 6px 9px; }
+    .field-head-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex-wrap: wrap; flex: 0 0 auto; }
+    .field-button { height: 30px; display: inline-flex; justify-content: center; align-items: center; gap: 5px; border: 1px solid #888; color: #000; background: transparent; border-radius: 0; padding: 0 10px; font: 400 13px/1.35 Arial, sans-serif; cursor: pointer; white-space: nowrap; }
+    .field-button:hover { background: #000; border-color: #000; color: #fff; }
+    .field-button:active { background: #333; }
+    .field-button:focus-visible { outline: 2px solid #000; outline-offset: 2px; }
+    .field-button[disabled] { opacity: .5; cursor: default; }
+    .result-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .result-title-row h2 { margin: 0; }
+    .result-title-row + .help { margin-top: 9px; }
+    .result-options-root { position: relative; }
+    .result-options-menu { position: absolute; z-index: 30; top: calc(100% + 9px); left: 0; width: min(315px, calc(100vw - 38px)); padding: 11px; background: #e9e9e8; border: 1px solid #888; box-shadow: none; border-radius: 0; }
+    .result-options-menu[hidden] { display: none !important; }
+    .result-options-title { font-size: 13px; color: #333; font-weight: 700; margin: 4px 7px 8px; }
+    .result-option-row { display: flex; align-items: center; gap: 10px; padding: 7px; border-radius: 0; font-size: 13px; cursor: pointer; }
+    .result-option-row:hover { background: #eee; }
+    .result-option-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+    .result-options-reset { width: 100%; justify-content: center; margin-top: 8px; font-size: 12px; }
+    .metric.shown strong { color: #000; }
+    .stack .panel-head { flex-wrap: wrap; }
+    .stack .panel-head > div:first-child { flex: 1 1 100%; }
+    .stack .field-head-actions { width: 100%; justify-content: flex-start; }
+    @media (max-width: 550px) { .panel-head { flex-wrap: wrap; } .field-head-actions { width: 100%; justify-content: flex-start; } }
+    textarea { width: 100%; background: #fff; color: #000; resize: vertical; border: 1px solid #aaa; border-radius: 0; padding: 13px 14px; font: 14px/1.1 Arial, sans-serif; outline: 0; tab-size: 2; }
+    textarea::placeholder { color: #9da6b4; opacity: 1; }
+    textarea:focus { border-color: #000; box-shadow: none; }
+    #queries { height: 352px; min-height: 150px; }
+    #negativeWords, #negativePhrases { height: auto; min-height: 120px; }
+    .negative-word-list { display: flex; flex-wrap: wrap; align-content: flex-start; gap: 2px 8px; max-height: 82px; overflow: auto; margin-top: 8px; padding: 7px 9px; border: 1px solid #aaa; background: #fff; }
+    .negative-word-list[hidden] { display: none !important; }
+    .negative-word-item { border: 0; border-radius: 0; padding: 2px 0; background: transparent; color: #000; font: 400 14px/1.1 Arial, sans-serif; cursor: pointer; }
+    .negative-word-item:hover { background: #ddd; text-decoration: line-through; }
+    .negative-word-item:focus-visible { outline: 2px solid #000; outline-offset: 1px; }
+    .phrase-note { margin-top: 8px; color: var(--muted); font-size: 11px; }
+    .result-panel { display: flex; flex-direction: column; min-height: 0; }
+    .result-header { display: flex; gap: 20px; justify-content: space-between; align-items: end; flex-wrap: wrap; margin-bottom: 14px; }
+    .result-header h2 { font-size: 17px; margin: 0 0 5px; }
+    .metrics { display: flex; gap: 10px; flex-wrap: wrap; }
+    .metric { min-width: 103px; border-radius: 0; background: #d7d7d5; padding: 9px 13px; }
+    .metric small { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+    .metric strong { font-size: 22px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+    .metric.excluded strong { color: var(--danger); }
+    .metric.remaining strong { color: var(--success); }
+    #remainingQueries { flex: 1 1 auto; height: 380px; min-height: 250px; background: #fbfcfe; }
+    #remainingQueries:focus { background: #fff; }
+    .bottom-help { color: var(--muted); font-size: 12px; margin: 10px 1px 0; }
+    .warning { display: none; background: transparent; color: #000; padding: 10px 12px; border-radius: 0; border: 1px solid #000; font-size: 12px; margin-top: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+    .warning.visible { display: block; }
+    @media (max-width: 780px) {
+      main { padding: 20px 13px 40px; }
+      .top-layout { grid-template-columns: minmax(0,1fr); }
+      #queries { height: 352px; }
+      #remainingQueries { height: 320px; flex: initial; }
+      #negativeWords, #negativePhrases { height: 125px; min-height: 125px; flex: none; }
+      .stack { display: flex; }
+      .panel { padding: 15px; }
+      h1 { font-size: 21px; }
+      .metric { flex: 1; min-width: 0; padding: 8px 10px; }
+      .metrics { width: 100%; }
+      .metric strong { font-size: 19px; }
+    }
+
+    .header-actions { margin-left: auto; align-self: end; position: relative; flex: 0 0 auto; z-index: 5; }
+    .settings-button { height: 30px; display: inline-flex; gap: 7px; align-items: center; border-radius: 0; border: 1px solid #888; background: transparent; padding: 0 10px; font: 400 13px/1.35 Arial, sans-serif; color: var(--text); cursor: pointer; }
+    .settings-button:hover, .settings-button[aria-expanded="true"] { border-color: #000; background: #000; color: #fff; }
+    .settings-button:focus-visible { outline: 2px solid #000; outline-offset: 2px; }
+    .settings-menu { width: min(370px, calc(100vw - 30px)); position: absolute; top: calc(100% + 9px); right: 0; z-index: 20; background: #e9e9e8; border: 1px solid #888; box-shadow: none; border-radius: 0; padding: 10px; }
+    .settings-menu[hidden], #clickableResults[hidden], #remainingQueries[hidden] { display: none !important; }
+    .settings-heading { padding: 6px 10px 9px; font-size: 13px; color: var(--muted); font-weight: 700; }
+    .setting-row { display: flex; align-items: flex-start; gap: 11px; padding: 10px; border-radius: 0; cursor: pointer; line-height: 1.3; font-size: 13px; }
+    .setting-row:hover { background: #eee; }
+    .setting-row input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; flex-shrink: 0; cursor: pointer; }
+    .query-mode { display: inline-flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 13px; cursor: pointer; }
+    .query-mode input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+    .clickable-results { flex: 1 1 auto; width: 100%; height: 480px; min-height: 300px; overflow: auto; background: #fff; border: 1px solid #aaa; border-radius: 0; padding: 0; font: 14px/1.1 Arial, sans-serif; user-select: text; }
+    .clickable-word { cursor: pointer; border-radius: 0; }
+    .clickable-word:hover { background: #ddd; color: #000; text-decoration: underline; }
+    .clickable-results:focus { outline: 0; border-color: #000; box-shadow: none; }
+    .group-add { display: flex; justify-content: flex-end; gap: 8px; }
+    .group-add input { width: 260px; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 10px; font: 13px/1.2 Arial, sans-serif; background: #fff; }
+    .query-grid { min-width: 100%; width: max-content; }
+    .query-row { display: grid; grid-template-columns: var(--group-columns) minmax(430px, 1fr); min-height: 24px; border-bottom: 1px solid #e1e1df; }
+    .query-grid.with-frequency .query-row { grid-template-columns: var(--group-columns) minmax(430px, 1fr) 120px; }
+    .query-row:last-child { border-bottom: 0; }
+    .query-row-header { position: sticky; top: 0; z-index: 3; min-height: 30px; background: #efefed; font-weight: 700; border-bottom: 1px solid #aaa; }
+    .group-head, .group-cell { width: 42px; display: grid; place-items: center; border-right: 1px solid #ddd; }
+    .group-head { font-size: 12px; }
+    .group-cell { appearance: none; margin: 0; padding: 0; border: 0; border-right: 1px solid #ddd; border-radius: 0; background: #fff; cursor: pointer; color: #111; font: 700 16px/1 Arial, sans-serif; }
+    .group-cell::after { content: ""; width: 15px; height: 15px; border: 1px solid #999; }
+    .group-cell[aria-checked="true"]::after { content: "✓"; display: grid; place-items: center; color: #fff; background: #111; border-color: #111; font-size: 12px; }
+    .group-cell:focus { position: relative; z-index: 2; outline: 3px solid #111; outline-offset: -3px; }
+    .query-text { min-width: 430px; padding: 4px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .query-frequency { width: 120px; padding: 4px 10px; border-left: 1px solid #ddd; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .morph-status { font-size: 11px; color: var(--muted); margin-left: auto; }
+    .project-actions { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+    .file-input { display: none; }
+    .save-status { width: 120px; align-self: center; color: var(--muted); font-size: 11px; line-height: 1.2; text-align: right; }
+    .site-footer { width: min(1200px, calc(100% - 40px)); margin: 0 auto; padding: 8px 0 28px; color: #555; font-size: 12px; text-align: right; }
+    .group-lists { margin: 16px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .group-list { background: transparent; border: 1px solid #aaa; min-width: 0; }
+    .group-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 55px; padding: 8px 10px; border-bottom: 1px solid #aaa; font-weight: 700; }
+    .group-list-items { max-height: 530px; overflow: auto; background: #fff; }
+    .group-list-item { display: flex; align-items: start; gap: 10px; padding: 5px 10px; border-bottom: 1px solid #ddd; font-size: 14px; line-height: 1.1; }
+    .group-list-item:last-child { border-bottom: 0; }
+    .group-list-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+    .group-list-frequency { flex: 0 0 92px; padding-left: 10px; border-left: 1px solid #ddd; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .group-list-return { border: 0; background: transparent; padding: 0 3px; color: #555; font: 400 18px/1 Arial, sans-serif; cursor: pointer; }
+    .group-list-return:hover { color: #000; }
+    .group-list-empty { padding: 14px; color: #777; font-size: 13px; }
+    .group-list-title { flex: 1 1 auto; min-width: 0; }
+    .group-list-controls { display: flex; align-items: center; gap: 4px; }
+    .group-control { width: 30px; height: 30px; border: 1px solid #888; background: transparent; padding: 0; font: 400 13px/1 Arial, sans-serif; cursor: pointer; }
+    .group-control:hover { background: #000; color: #fff; }
+    .group-control[disabled] { opacity: .35; cursor: default; background: transparent; color: #000; }
+    .group-edit { width: 30px; }
+    .group-rename { width: 76px; }
+    .group-delete { width: 64px; }
+    .group-copy { width: 92px; }
+    .group-rename-input { width: 100%; height: 30px; border: 1px solid #888; padding: 0 7px; font: 400 14px/1 Arial, sans-serif; background: #fff; }
+    .group-add-section { margin-top: 12px; display: flex; justify-content: flex-end; }
+    .result-status { min-height: 18px; margin: 0 0 8px; display: flex; justify-content: flex-end; }
+    .result-panel { grid-column: span 2; }
+    @media(max-width: 780px) {
+      .app-header { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+      .header-note { min-width: 0; }
+      .project-actions { flex-wrap: wrap; }
+      .header-actions { margin-left: 0; align-self: start; }
+      .clickable-results { height: 320px; flex: initial; }
+      .group-lists { grid-template-columns: minmax(0, 1fr); }
+      .result-panel { grid-column: auto; }
+    }
+    @media(max-width: 639px) {
+      .site-header { height: 260px; }
+      .site-header-inner { height: 260px; flex-direction: column; justify-content: flex-start; align-items: center; padding-top: 15px; }
+      .site-logo { width: 183px; height: 91px; flex-basis: 91px; }
+      .site-contacts { width: min(407px, 90vw); margin-top: 40px; font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a class="site-logo" href="https://vershalovskiy.com/" aria-label="Vershalovskiy Consulting Group">
+        <img src="https://static.tildacdn.com/tild3738-6130-4261-b465-313833316632/VCG_Logo.png" alt="Vershalovskiy Consulting Group">
+      </a>
+      <div class="site-contacts">
+        Telegram: <a href="https://t.me/vershalovskiy" target="_blank" rel="nofollow noreferrer noopener">@vershalovskiy</a><br>
+        E-mail: <a href="mailto:vcg@vershalovskiy.com">vcg@vershalovskiy.com</a>
+      </div>
+    </div>
+  </header>
+  <main>
+    <section class="app-header">
+      <div class="header-title">
+        <h1>Key Sort</h1>
+        <div class="subtitle">Сортировка ключей контекстной рекламы по группам и минус-словам</div>
+      </div>
+      <div class="header-note">
+        <input type="text" id="campaignNote" aria-label="Заметка о рекламной кампании" placeholder="Заметка" maxlength="100" autocomplete="off" spellcheck="false" title="Название или пометка для этой вкладки">
+      </div>
+      <div class="project-actions" aria-label="Файл проекта">
+        <button type="button" class="field-button" id="undoButton" title="Отменить последнее действие (Ctrl+Z)" disabled>Отменить</button>
+        <button type="button" class="field-button" id="redoButton" title="Повторить отменённое действие (Ctrl+Y)" disabled>Повторить</button>
+        <button type="button" class="field-button" id="exportProject">Экспорт JSON</button>
+        <button type="button" class="field-button" id="importProject">Импорт JSON</button>
+        <input type="file" class="file-input" id="importProjectFile" accept="application/json,.json">
+        <span class="save-status" id="saveStatus" aria-live="polite">Подготовка…</span>
+      </div>
+      <div class="header-actions" id="settingsRoot">
+        <button type="button" class="settings-button" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-controls="settingsMenu">Настройки</button>
+        <div class="settings-menu" id="settingsMenu" hidden>
+          <div class="settings-heading">Дополнительные возможности</div>
+          <label class="setting-row"><input type="checkbox" id="settingClick" checked><span>Минус-слово по нажатию</span></label>
+          <label class="setting-row"><input type="checkbox" id="settingClean" checked><span>Удалять лишние символы в Минус-словах</span></label>
+          <label class="setting-row"><input type="checkbox" id="settingCleanPhrases" checked><span>Удалять лишние символы в Минус-фразах</span></label>
+          <label class="setting-row"><input type="checkbox" id="settingDash"><span>Автоматически добавлять «-» к Минус-словам</span></label>
+          <label class="setting-row"><input type="checkbox" id="settingQuote"><span>Автоматически минусовать Минус-фразы</span></label>
+          <label class="setting-row"><input type="checkbox" id="settingCopyFrequency" checked><span>Копировать с частотностями</span></label>
+        </div>
+      </div>
+    </section>
+
+    <div class="top-layout">
+    <section class="panel result-panel" aria-labelledby="resultTitle">
+      <div class="result-header">
+        <div>
+          <div class="result-title-row">
+            <h2 id="resultTitle">Нераспределённые поисковые запросы</h2>
+            <div class="result-options-root" id="resultOptionsRoot">
+              <button type="button" class="field-button" id="resultOptionsButton" aria-haspopup="true" aria-expanded="false" aria-controls="resultOptionsMenu">Фильтр</button>
+              <div class="result-options-menu" id="resultOptionsMenu" hidden>
+                <div class="result-options-title">Показывать поисковые запросы, состоящие из:</div>
+                <label class="result-option-row"><input type="checkbox" data-query-length="1"><span>1 слова</span></label>
+                <label class="result-option-row"><input type="checkbox" data-query-length="2"><span>2 слов</span></label>
+                <label class="result-option-row"><input type="checkbox" data-query-length="3"><span>3 слов</span></label>
+                <label class="result-option-row"><input type="checkbox" data-query-length="4"><span>4 слов</span></label>
+                <label class="result-option-row"><input type="checkbox" data-query-length="5"><span>5 слов</span></label>
+                <label class="result-option-row"><input type="checkbox" data-query-length="6"><span>6 и более слов</span></label>
+                <button type="button" class="field-button result-options-reset" id="showAllButton">Показать всё</button>
+              </div>
+            </div>
+            <button type="button" class="field-button" data-copy="remaining" title="Скопировать оставшиеся запросы">Скопировать</button>
+          </div>
+          <div class="help">После выбора группы запрос исчезает отсюда и появляется в блоке выбранной группы ниже.</div>
+        </div>
+        <div class="metrics" aria-label="Статистика фильтрации" aria-live="polite">
+          <div class="metric"><small>Всего</small><strong id="totalCount">0</strong></div>
+          <div class="metric excluded"><small>Исключено</small><strong id="excludedCount">0</strong></div>
+          <div class="metric remaining"><small>Не разобрано</small><strong id="remainingCount">0</strong></div>
+          <div class="metric shown" id="shownMetric" hidden><small>После фильтра</small><strong id="shownCount">0</strong></div>
+        </div>
+      </div>
+      <div class="result-status"><span class="morph-status" id="morphStatus">Морфология: подготовка</span></div>
+      <textarea id="remainingQueries" readonly spellcheck="false" aria-label="Оставшиеся поисковые запросы" placeholder="Сюда автоматически попадут оставшиеся запросы"></textarea>
+      <div id="clickableResults" class="clickable-results" tabindex="0" role="region" aria-label="Оставшиеся поисковые запросы — нажмите на слово, чтобы отминусовать" hidden></div>
+      <div class="bottom-help" id="resultCopyHelp">Скопируй весь список кнопкой сверху или выдели текст вручную.</div>
+      <div id="warning" class="warning" role="status"></div>
+    </section>
+
+      <div class="stack">
+        <section class="panel" aria-labelledby="wordTitle">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title" id="wordTitle">Минус-слова</h2>
+              <div class="help">Разделяй <strong>пробелом</strong>. Словоформы одной леммы и части речи учитываются автоматически.</div>
+            </div>
+            <div class="field-head-actions">
+              <span class="count" id="wordLabel">0 слов</span>
+              <button type="button" class="field-button" data-copy="words" title="Скопировать минус-слова">Скопировать</button>
+              <button type="button" class="field-button" data-clear="words" title="Очистить минус-слова">Очистить</button>
+            </div>
+          </div>
+          <textarea id="negativeWords" spellcheck="false" aria-label="Минус-слова через пробел" placeholder="алюминиевую алюминиевая бесплатно бу"></textarea>
+          <div class="negative-word-list" id="negativeWordList" aria-label="Кликабельные минус-слова" hidden></div>
+        </section>
+
+        <section class="panel" aria-labelledby="phraseTitle">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title" id="phraseTitle">Минус-фразы</h2>
+              <div class="help">Каждая фраза с <strong>новой строки</strong> (или через запятую).</div>
+            </div>
+            <div class="field-head-actions">
+              <span class="count" id="phraseLabel">0 фраз</span>
+              <button type="button" class="field-button" data-copy="phrases" title="Скопировать минус-фразы">Скопировать</button>
+              <button type="button" class="field-button" data-clear="phrases" title="Очистить минус-фразы">Очистить</button>
+            </div>
+          </div>
+          <textarea id="negativePhrases" spellcheck="false" aria-label="Минус-фразы по одной на строку" placeholder="&quot;купить посуду&quot;&#10;бу посуда&#10;[одноразовая посуда]"></textarea>
+          <div class="phrase-note">Незаконченная фраза применяется после Enter, запятой или выхода из поля. Кавычки нужны для копирования в Коммандер. [...] — заданный порядок слов; ! и + сохраняются как операторы.</div>
+        </section>
+      </div>
+    </div>
+
+    <section class="group-lists" id="groupLists" aria-label="Распределённые по группам запросы"></section>
+    <section class="group-add-section" aria-label="Добавление группы">
+      <div id="groupChips" hidden></div>
+      <form class="group-add" id="groupAddForm">
+        <input id="groupName" maxlength="30" placeholder="Название новой группы" aria-label="Название новой группы">
+        <button type="submit" class="field-button">Добавить группу</button>
+      </form>
+    </section>
+
+    <div class="source-panel">
+      <section class="panel" aria-labelledby="queryTitle">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title" id="queryTitle">Поисковые запросы</h2>
+            <div class="help">Скопируй столбец из отчёта или Excel и вставь сюда. Один запрос — одна строка.</div>
+            <label class="query-mode"><input type="checkbox" id="frequencyMode"><span>С частотностями</span></label>
+          </div>
+          <div class="field-head-actions">
+            <span class="count" id="sourceLabel">0 строк</span>
+            <button type="button" class="field-button" data-copy="queries" title="Скопировать исходные поисковые запросы">Скопировать</button>
+            <button type="button" class="field-button" data-clear="queries" title="Очистить исходные поисковые запросы">Очистить</button>
+          </div>
+        </div>
+        <textarea id="queries" spellcheck="false" aria-label="Исходные поисковые запросы" placeholder="купить посуду алюминиевую&#10;купить посуду из пластика&#10;купить посуду&#10;пластиковая и алюминиевая посуда&#10;купить пластиковую посуду"></textarea>
+      </section>
+    </div>
+  </main>
+  <footer class="site-footer">Inspired by Denis Efimov</footer>
+
+  <script>
+  (() => {
+    "use strict";
+    const $ = id => document.getElementById(id);
+    const queriesInput = $("queries");
+    const wordsInput = $("negativeWords");
+    const phrasesInput = $("negativePhrases");
+    const output = $("remainingQueries");
+    const clickableOutput = $("clickableResults");
+    const formatter = new Intl.NumberFormat("ru-RU");
+    const settingsButton = $("settingsButton");
+    const settingsMenu = $("settingsMenu");
+    const settingsRoot = $("settingsRoot");
+    const clickSetting = $("settingClick");
+    const cleanSetting = $("settingClean");
+    const cleanPhrasesSetting = $("settingCleanPhrases");
+    const dashSetting = $("settingDash");
+    const quoteSetting = $("settingQuote");
+    const copyFrequencySetting = $("settingCopyFrequency");
+    const frequencyMode = $("frequencyMode");
+    const undoButton = $("undoButton");
+    const redoButton = $("redoButton");
+    const noteInput = $("campaignNote");
+    const resultOptionsRoot = $("resultOptionsRoot");
+    const resultOptionsButton = $("resultOptionsButton");
+    const resultOptionsMenu = $("resultOptionsMenu");
+    const showAllButton = $("showAllButton");
+    const lengthChecks = Array.from(document.querySelectorAll("[data-query-length]"));
+    const defaultPageTitle = document.title;
+    let timer = null;
+    let rawWords = wordsInput.value;    // Текст без автоматически добавленных дефисов.
+    let rawPhrases = phrasesInput.value; // Текст без автоматически добавленных оболочек.
+    let lastRemaining = [];
+    let lastVisible = [];
+    let sourceCache = { value: null, lines: [] };
+    let groups = [
+      { id: "hot", name: "Горячие", short: "Г" },
+      { id: "warm", name: "Тёплые", short: "Т" },
+      { id: "cold", name: "Холодные", short: "Х" }
+    ];
+    let assignments = Object.create(null);
+    const morphCache = new Map();
+    const morphQueued = new Set();
+    let morphLoading = false;
+    let morphAvailable = true;
+    let saveTimer = null;
+    let databasePromise = null;
+
+    // История хранится только в памяти открытой страницы. Отдельные нажатия на
+    // поисковые слова, вставки, очистки и переключатели — самостоятельные шаги.
+    // Последовательный ручной набор объединяем в короткие серии, как в редакторе.
+    const HISTORY_LIMIT = 120;
+    let history = [];
+    let historyIndex = -1;
+    let restoringHistory = false;
+    let lastEdit = null;
+    function syncHistoryButtons() {
+      undoButton.disabled = historyIndex <= 0;
+      redoButton.disabled = historyIndex >= history.length - 1;
+    }
+    function snapshot() {
+      const active = document.activeElement;
+      const focused = [queriesInput, wordsInput, phrasesInput, noteInput].includes(active) ? active : null;
+      return {
+        note: noteInput.value,
+        selectedLengths: lengthChecks.filter(ch => ch.checked).map(ch => Number(ch.dataset.queryLength)),
+        queries: queriesInput.value,
+        words: wordsInput.value,
+        phrases: phrasesInput.value,
+        rawWords, rawPhrases,
+        click: clickSetting.checked,
+        clean: cleanSetting.checked,
+        cleanPhrases: cleanPhrasesSetting.checked,
+        dash: dashSetting.checked,
+        quote: quoteSetting.checked,
+        frequencyMode: frequencyMode.checked,
+        copyFrequency: copyFrequencySetting.checked,
+        focusId: focused ? focused.id : null,
+        selectionStart: focused ? focused.selectionStart : null,
+        selectionEnd: focused ? focused.selectionEnd : null
+      };
+    }
+    function equalSnapshot(a, b) {
+      return a.note === b.note && a.selectedLengths.join(",") === b.selectedLengths.join(",") &&
+        a.queries === b.queries && a.words === b.words && a.phrases === b.phrases &&
+        a.rawWords === b.rawWords && a.rawPhrases === b.rawPhrases &&
+        a.click === b.click && a.clean === b.clean && a.cleanPhrases === b.cleanPhrases && a.dash === b.dash && a.quote === b.quote &&
+        a.frequencyMode === b.frequencyMode && a.copyFrequency === b.copyFrequency;
+    }
+    function storeHistory(kind = "action", field = "") {
+      if (restoringHistory) return;
+      const next = snapshot();
+      if (historyIndex >= 0 && equalSnapshot(next, history[historyIndex])) return;
+      const now = performance.now();
+      const canMerge = kind === "typing" && lastEdit && lastEdit.kind === "typing" &&
+        lastEdit.field === field && (now - lastEdit.time) <= 800 &&
+        historyIndex > 0 && historyIndex === history.length - 1 &&
+        next.focusId === lastEdit.focusId &&
+        Math.abs((next.selectionStart ?? 0) - (lastEdit.cursor ?? 0)) <= 4;
+      if (canMerge) {
+        history[historyIndex] = next;
+      } else {
+        if (historyIndex < history.length - 1) history.length = historyIndex + 1;
+        history.push(next);
+        historyIndex++;
+        if (history.length > HISTORY_LIMIT) { history.shift(); historyIndex--; }
+      }
+      lastEdit = kind === "typing"
+        ? {kind, field, time: now, focusId: next.focusId, cursor: next.selectionEnd}
+        : null;
+      syncHistoryButtons();
+      scheduleSave();
+    }
+    function storeTextEdit(field, e) {
+      const inputType = e && e.inputType;
+      const isTyping = inputType === "insertText" || inputType === "deleteContentBackward" ||
+        inputType === "deleteContentForward" || inputType === "insertCompositionText";
+      storeHistory(isTyping ? "typing" : "action", field);
+    }
+    function syncPageTitle() {
+      const name = noteInput.value.trim();
+      document.title = name ? `${name} — Key Sort` : defaultPageTitle;
+    }
+    function activeLengths() {
+      return new Set(lengthChecks.filter(ch => ch.checked).map(ch => Number(ch.dataset.queryLength)));
+    }
+    function visibleByLength(lines) {
+      const selected = activeLengths();
+      if (!selected.size) return lines;
+      return lines.filter(line => {
+        const count = getWords(queryPhrase(line)).length;
+        return selected.has(count >= 6 ? 6 : count);
+      });
+    }
+    function syncClickableView() {
+      const enabled = clickSetting.checked;
+      output.hidden = true;
+      clickableOutput.hidden = false;
+      $("resultCopyHelp").textContent = enabled
+        ? "Клик по слову добавляет его в минус-слова. По группам: стрелки — движение, Пробел или 1 — отметка."
+        : "По группам: стрелки — движение, Пробел или 1 — отметка. Для полного списка есть кнопка «Скопировать».";
+      renderClickable(lastVisible);
+    }
+    function applySnapshot(state) {
+      restoringHistory = true;
+      if (timer !== null) { clearTimeout(timer); timer = null; }
+      noteInput.value = state.note || "";
+      syncPageTitle();
+      const chosen = new Set(state.selectedLengths || []);
+      lengthChecks.forEach(ch => { ch.checked = chosen.has(Number(ch.dataset.queryLength)); });
+      queriesInput.value = state.queries;
+      wordsInput.value = state.words;
+      phrasesInput.value = state.phrases;
+      rawWords = state.rawWords;
+      rawPhrases = state.rawPhrases;
+      clickSetting.checked = state.click;
+      cleanSetting.checked = state.clean;
+      cleanPhrasesSetting.checked = state.cleanPhrases;
+      dashSetting.checked = state.dash;
+      quoteSetting.checked = state.quote;
+      frequencyMode.checked = Boolean(state.frequencyMode);
+      copyFrequencySetting.checked = state.copyFrequency !== false;
+      syncClickableView();
+      recalculate();
+      wordsScroll.edited();
+      phrasesScroll.edited();
+      const target = state.focusId ? document.getElementById(state.focusId) : null;
+      if (target && [queriesInput, wordsInput, phrasesInput, noteInput].includes(target)) {
+        target.focus({preventScroll: true});
+        const start = Math.min(target.value.length, state.selectionStart ?? target.value.length);
+        const end = Math.min(target.value.length, state.selectionEnd ?? start);
+        target.setSelectionRange(start, end);
+      }
+      lastEdit = null;
+      restoringHistory = false;
+      syncHistoryButtons();
+      scheduleSave();
+    }
+    function undo() {
+      if (historyIndex <= 0) { syncHistoryButtons(); return; }
+      applySnapshot(history[--historyIndex]);
+    }
+    function redo() {
+      if (historyIndex >= history.length - 1) { syncHistoryButtons(); return; }
+      applySnapshot(history[++historyIndex]);
+    }
+
+    const getWords = text => (text.normalize("NFC").toLocaleLowerCase("ru-RU").match(/[\p{L}\p{N}]+(?:\.[0-9]+)?/gu) || []);
+    function parseQueryLine(line) {
+      if (!frequencyMode.checked) return { phrase: line, frequency: "" };
+      const match = line.match(/^(.*?)(?:\s*[,;]\s*|\t+|\s+)(\d+)\s*$/u);
+      if (!match || !match[1].trim()) return { phrase: line, frequency: "" };
+      return { phrase: match[1].trim(), frequency: match[2] };
+    }
+    const queryPhrase = line => parseQueryLine(line).phrase;
+    function formatQueryLines(lines) {
+      return lines.map(line => copyFrequencySetting.checked ? line : queryPhrase(line)).join("\n");
+    }
+    const normalizedWord = word => word.normalize("NFC").toLocaleLowerCase("ru-RU");
+    const morphKey = word => morphCache.get(normalizedWord(word))?.key || `word:${normalizedWord(word)}`;
+
+    function updateMorphStatus() {
+      const status = $("morphStatus");
+      if (!morphAvailable) status.textContent = "Морфология недоступна — точное совпадение";
+      else if (morphLoading || morphQueued.size) status.textContent = `Морфология: обработка (${formatter.format(morphQueued.size)})`;
+      else status.textContent = `Морфология: готова (${formatter.format(morphCache.size)})`;
+    }
+    function queueMorphology(words) {
+      if (!morphAvailable) return;
+      for (const source of words) {
+        const word = normalizedWord(source);
+        if (/[а-яё]/iu.test(word) && !morphCache.has(word)) morphQueued.add(word);
+      }
+      updateMorphStatus();
+      if (!morphLoading && morphQueued.size) void flushMorphology();
+    }
+    async function flushMorphology() {
+      if (morphLoading || !morphQueued.size || !morphAvailable) return;
+      morphLoading = true;
+      updateMorphStatus();
+      try {
+        while (morphQueued.size) {
+          const batch = Array.from(morphQueued).slice(0, 1000);
+          batch.forEach(word => morphQueued.delete(word));
+          const response = await fetch("/api/lemmatize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ words: batch })
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          for (const [word, analysis] of Object.entries(data.analyses || {})) morphCache.set(word, analysis);
+          recalculate();
+        }
+      } catch (_) {
+        morphAvailable = false;
+        morphQueued.clear();
+        morphCache.clear();
+        recalculate();
+      } finally {
+        morphLoading = false;
+        updateMorphStatus();
+      }
+    }
+
+    function openDatabase() {
+      if (databasePromise) return databasePromise;
+      databasePromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open("key-sort", 1);
+        request.onupgradeneeded = () => request.result.createObjectStore("projects");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      return databasePromise;
+    }
+    async function databaseGet(key) {
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const request = db.transaction("projects", "readonly").objectStore("projects").get(key);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+    }
+    async function databasePut(key, value) {
+      const db = await openDatabase();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction("projects", "readwrite");
+        transaction.objectStore("projects").put(value, key);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+    }
+    function projectState() {
+      return {
+        format: "key-sort-project",
+        version: 1,
+        savedAt: new Date().toISOString(),
+        note: noteInput.value,
+        queries: queriesInput.value,
+        words: wordsInput.value,
+        phrases: phrasesInput.value,
+        rawWords,
+        rawPhrases,
+        groups,
+        assignments,
+        selectedLengths: lengthChecks.filter(ch => ch.checked).map(ch => Number(ch.dataset.queryLength)),
+        settings: {
+          click: clickSetting.checked,
+          clean: cleanSetting.checked,
+          cleanPhrases: cleanPhrasesSetting.checked,
+          dash: dashSetting.checked,
+          quote: quoteSetting.checked,
+          frequencyMode: frequencyMode.checked,
+          copyFrequency: copyFrequencySetting.checked
+        }
+      };
+    }
+    function validProjectState(state) {
+      return state && state.format === "key-sort-project" && state.version === 1 &&
+        typeof state.queries === "string" && typeof state.words === "string" && typeof state.phrases === "string" &&
+        Array.isArray(state.groups) && state.groups.length > 0;
+    }
+    function applyProjectState(state) {
+      if (!validProjectState(state)) throw new Error("Неподдерживаемый файл проекта");
+      noteInput.value = state.note || "";
+      queriesInput.value = state.queries;
+      wordsInput.value = state.words;
+      phrasesInput.value = state.phrases;
+      rawWords = typeof state.rawWords === "string" ? state.rawWords : state.words;
+      rawPhrases = typeof state.rawPhrases === "string" ? state.rawPhrases : state.phrases;
+      groups = state.groups.map(group => ({ id: String(group.id), name: String(group.name), short: String(group.short || group.name).slice(0, 2).toLocaleUpperCase("ru-RU") }));
+      assignments = Object.create(null);
+      if (state.assignments && typeof state.assignments === "object") {
+        for (const [line, selected] of Object.entries(state.assignments)) {
+          const candidates = Array.isArray(selected) ? selected.map(String) : [String(selected)];
+          const groupId = candidates.find(id => groups.some(group => group.id === id));
+          if (groupId) assignments[line] = groupId;
+        }
+      }
+      const chosen = new Set(state.selectedLengths || []);
+      lengthChecks.forEach(ch => { ch.checked = chosen.has(Number(ch.dataset.queryLength)); });
+      const settings = state.settings || {};
+      clickSetting.checked = settings.click !== false;
+      cleanSetting.checked = settings.clean !== false;
+      cleanPhrasesSetting.checked = settings.cleanPhrases !== false;
+      dashSetting.checked = Boolean(settings.dash);
+      quoteSetting.checked = Boolean(settings.quote);
+      frequencyMode.checked = Boolean(settings.frequencyMode);
+      copyFrequencySetting.checked = settings.copyFrequency !== false;
+      sourceCache.value = null;
+      lastRenderedClickable = null;
+      syncPageTitle();
+      renderGroupChips();
+      syncClickableView();
+      recalculate();
+    }
+    function scheduleSave() {
+      if (restoringHistory) return;
+      clearTimeout(saveTimer);
+      $("saveStatus").textContent = "Есть несохранённые изменения";
+      saveTimer = setTimeout(() => void saveNow(), 500);
+    }
+    async function saveNow() {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+      try {
+        await databasePut("current", projectState());
+        $("saveStatus").textContent = "Сохранено в браузере";
+      } catch (_) {
+        $("saveStatus").textContent = "Автосохранение недоступно";
+      }
+    }
+    function safeFileName() {
+      const base = noteInput.value.trim() || "key-sort-project";
+      return base.replace(/[<>:"/\\|?*\x00-\x1F]/gu, "_").slice(0, 80) + ".json";
+    }
+    function exportProject() {
+      const blob = new Blob([JSON.stringify(projectState(), null, 2)], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = safeFileName();
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+    function countsOf(words) {
+      const map = new Map();
+      for (const word of words) map.set(word, (map.get(word) || 0) + 1);
+      return map;
+    }
+    function includesAll(queryCounts, ruleCounts) {
+      for (const [word, count] of ruleCounts) if ((queryCounts.get(word) || 0) < count) return false;
+      return true;
+    }
+
+    function getNegativeWords(raw, warnings) {
+      const result = new Set();
+      for (const part of raw.split(/[\s,;]+/u)) {
+        if (!part) continue;
+        const word = part.replace(/^[-!+]+/u, "");
+        if (!/^[\p{L}\p{N}]+(?:\.[0-9]+)?$/u.test(word)) {
+          warnings.push(`Некорректное минус-слово «${part}»`);
+          continue;
+        }
+        result.add(word.normalize("NFC").toLocaleLowerCase("ru-RU"));
+      }
+      return result;
+    }
+
+    // Разделители фраз: новая строка или запятая, но не внутри кавычек/скобок.
+    // Оставляем разделители на месте, чтобы переключатель форматирования был обратимым.
+    function phrasePieces(raw) {
+      const out = [];
+      let start = 0, quoted = false, brackets = 0;
+      for (let i = 0; i < raw.length; i++) {
+        const ch = raw[i];
+        if (ch === '"') quoted = !quoted;
+        else if (!quoted && ch === "[") brackets++;
+        else if (!quoted && ch === "]") brackets = Math.max(0, brackets - 1);
+        if ((ch === "," || ch === "\n" || ch === "\r") && !quoted && brackets === 0) {
+          out.push({ text: raw.slice(start, i), sep: ch });
+          start = i + 1;
+        }
+      }
+      out.push({ text: raw.slice(start), sep: "" });
+      return out;
+    }
+    function splitPhrases(raw) { return phrasePieces(raw).map(p => p.text.trim()).filter(Boolean); }
+    function getNegativePhrases(raw, warnings, skipDraft = false) {
+      const phrases = [], seen = new Set();
+      const pieces = phrasePieces(raw);
+      // Пока пользователь пишет последнюю строку, она ещё не завершена.
+      // Иначе одна введённая буква могла временно скрыть запрос, а затем
+      // вернуть его после ввода следующего слова.
+      if (skipDraft && pieces.length && !pieces[pieces.length - 1].sep) pieces.pop();
+      for (const piece of pieces) {
+        const sourceRaw = piece.text.trim();
+        if (!sourceRaw) continue;
+        let source = sourceRaw.replace(/^\s*-\s*/u, "").trim();
+        let ordered = false;
+        // Автоматически добавленные кавычки — лишь оформление. Сочетания
+        // [слова] и -"[слова]" должны фильтровать ОДИНАКОВО.
+        if (source.startsWith('"') && source.endsWith('"') && source.length >= 2) {
+          source = source.slice(1, -1).trim();
+        }
+        if (source.startsWith("[") && source.endsWith("]") && source.length >= 2) {
+          ordered = true;
+          source = source.slice(1, -1).trim();
+        }
+        if (/["\[\]]/u.test(source)) {
+          warnings.push(`Некорректные кавычки или скобки: «${sourceRaw}»`);
+          continue;
+        }
+        // + и ! сохраняются для Коммандера, но при отключённой морфологии
+        // оба означают точное совпадение со словом. Допускаем также - перед
+        // словом (в первую очередь для уже скопированного списка).
+        const pattern = /^(?:[+!\-]?[\p{L}\p{N}]+(?:\.[0-9]+)?)(?:\s+[+!\-]?[\p{L}\p{N}]+(?:\.[0-9]+)?)*$/u;
+        if (!pattern.test(source)) {
+          warnings.push(`Некорректная запись минус-фразы: «${sourceRaw}»`);
+          continue;
+        }
+        const words = getWords(source);
+        if (!words.length) continue;
+        const type = ordered ? "ordered" : "exact";
+        const key = `${type}:${words.join("\u0000")}`;
+        if (!seen.has(key)) { seen.add(key); phrases.push({ type, words, counts: countsOf(words) }); }
+      }
+      return phrases;
+    }
+    function phraseMatches(query, phrase) {
+      const queryKeys = query.words.map(morphKey);
+      const phraseKeys = phrase.words.map(morphKey);
+      const queryCounts = countsOf(queryKeys);
+      const phraseCounts = countsOf(phraseKeys);
+      if (phrase.type === "exact") return queryKeys.length === phraseKeys.length && includesAll(queryCounts, phraseCounts);
+      if (phrase.type === "all") return includesAll(queryCounts, phraseCounts);
+      const len = phrase.words.length;
+      for (let i = 0; i <= query.words.length - len; i++) {
+        let ok = true;
+        for (let j = 0; j < len; j++) if (queryKeys[i + j] !== phraseKeys[j]) { ok = false; break; }
+        if (ok) return true;
+      }
+      return false;
+    }
+
+    // Нормализуем только при включённом соответствующем переключателе.
+    function cleanWordText(s, trimEnd = false) {
+      const chars = Array.from(s);
+      const res = [];
+      for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
+        if (/[\p{L}\p{N}!+\[\]]/u.test(ch)) { res.push(ch); continue; }
+        if (ch === "." && /[0-9]/.test(chars[i - 1] || "") && /[0-9]/.test(chars[i + 1] || "")) {
+          res.push(ch); continue;
+        }
+        res.push(" ");
+      }
+      let v = res.join("").replace(/\s+/gu, " ").replace(/^ /u, "");
+      if (trimEnd) v = v.trimEnd();
+      return v;
+    }
+
+    // Очистка минус-фраз не должна удалять их разделители или операторы.
+    // В отличие от Минус-слов, запятая и перевод строки здесь значимы.
+    function cleanPhraseText(s) {
+      let value = s.replace(/\r\n?/gu, "\n").replace(/[«»“”„]/gu, '"');
+      const chars = Array.from(value);
+      const cleaned = [];
+      for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
+        if (/[\p{L}\p{N} !+\[\]"\-,\n]/u.test(ch)) { cleaned.push(ch); continue; }
+        if (ch === "." && /[0-9]/.test(chars[i - 1] || "") && /[0-9]/.test(chars[i + 1] || "")) {
+          cleaned.push(ch); continue;
+        }
+        cleaned.push(" ");
+      }
+      return cleaned.join("")
+        .replace(/ {2,}/gu, " ")                // Двойные пробелы.
+        .replace(/ *\n */gu, "\n")             // Нет пробелов вокруг переводов строк.
+        .replace(/\n{2,}/gu, "\n")             // Без пустых промежуточных строк.
+        .replace(/ *, */gu, ", ")               // Запятая как разделитель.
+        .replace(/(?:, *){2,}/gu, ", ")         // Повторные запятые.
+        .replace(/, *\n/gu, "\n")              // Два разделителя подряд.
+        .replace(/-{2,}/gu, "-")                  // Не дублировать минусы.
+        .replace(/!{2,}/gu, "!")                 // Не дублировать ! и +.
+        .replace(/\+{2,}/gu, "+")
+        .replace(/"{2,}/gu, '"')
+        .replace(/\[{2,}/gu, "[")
+        .replace(/\]{2,}/gu, "]")
+        .replace(/^ +/u, "");
+    }
+
+    // Прокрутка следует за новыми записями только пока пользователь находится внизу.
+    // Собственная прокрутка курсора браузером не считается ручным изменением позиции.
+    function stickyBottom(el) {
+      let follow = true;
+      let manualTop = 0;
+      let userUntil = 0;
+      let draggingBar = false;
+      const atBottom = () => el.scrollHeight - el.clientHeight - el.scrollTop <= 14;
+      function record() { follow = atBottom(); manualTop = el.scrollTop; }
+      function markUser() {
+        userUntil = performance.now() + 450;
+        requestAnimationFrame(record);
+      }
+      el.addEventListener("wheel", markUser, { passive: true });
+      el.addEventListener("touchmove", markUser, { passive: true });
+      el.addEventListener("pointerdown", e => {
+        const rect = el.getBoundingClientRect();
+        // Обработка перетаскивания полосы прокрутки.
+        if (e.clientX > rect.right - 23) { draggingBar = true; userUntil = performance.now() + 3000; }
+      });
+      window.addEventListener("pointerup", () => {
+        if (draggingBar) { draggingBar = false; markUser(); }
+      });
+      el.addEventListener("keydown", e => {
+        if (["PageUp", "PageDown", "Home", "End", "ArrowUp", "ArrowDown"].includes(e.key) && !e.ctrlKey && !e.metaKey) markUser();
+      });
+      el.addEventListener("scroll", () => {
+        if (draggingBar || performance.now() < userUntil) record();
+      }, { passive: true });
+      el.addEventListener("beforeinput", () => { userUntil = 0; });
+      return {
+        edited() {
+          userUntil = 0;
+          if (follow) el.scrollTop = el.scrollHeight;
+          else el.scrollTop = Math.min(manualTop, Math.max(0, el.scrollHeight - el.clientHeight));
+        },
+        manualPosition: () => ({follow, manualTop})
+      };
+    }
+    const wordsScroll = stickyBottom(wordsInput);
+    const phrasesScroll = stickyBottom(phrasesInput);
+
+    const wordParts = s => s.split(/([\s,;]+)/u);
+    function formatWords(raw) {
+      return wordParts(raw).map(token => {
+        if (!token || /^[\s,;]+$/u.test(token)) return token;
+        return /^-/u.test(token) ? token : (/[\p{L}\p{N}]/u.test(token) ? "-" + token : token);
+      }).join("");
+    }
+    // Снимаем автоматически добавленные '-', сохраняя те, что были написаны вручную
+    // до включения настройки (сопоставление по позиции и содержимому слова).
+    function unformatWords(display, previous) {
+      const parts = wordParts(display);
+      const prior = wordParts(previous).filter(p => p && !/^[\s,;]+$/u.test(p));
+      let index = 0;
+      return parts.map(token => {
+        if (!token || /^[\s,;]+$/u.test(token)) return token;
+        const existing = prior[index++] || "";
+        if (token.startsWith("-")) {
+          if (existing.startsWith("-") && existing.slice(1) === token.slice(1)) return token;
+          return token.slice(1);
+        }
+        return token;
+      }).join("");
+    }
+
+    function formatPhrasePiece(piece) {
+      const leading = (piece.match(/^\s*/u) || [""])[0];
+      const core = piece.slice(leading.length);
+      if (!core || !core.trim()) return piece;
+      const trimmed = core.trimEnd();
+      const trailing = core.slice(trimmed.length);
+      if (/^-\s*".*"$/su.test(trimmed)) return piece;
+      if (/^".*"$/su.test(trimmed)) return leading + "-" + trimmed + trailing;
+      // И квадратные скобки должны попасть внутрь кавычек: -"[фраза]".
+      // Не трогаем оператор '-' пользователя, если он уже был в начале.
+      if (/^-\s*$/u.test(trimmed)) return piece;
+      const body = trimmed.replace(/^-\s*/u, "");
+      // Пока фраза не закончена, пробел после слова остаётся ВНУТРИ кавычек.
+      // Для закрытых [скобок] пробел уже является внешним разделителем.
+      const completedBracket = /^\[.*\]$/su.test(body);
+      return leading + '-"' + body + (completedBracket ? '"' + trailing : trailing + '"');
+    }
+    function formatPhrases(raw) { return phrasePieces(raw).map(p => formatPhrasePiece(p.text) + p.sep).join(""); }
+    function unformatPhrasePiece(piece, previousPiece, preserveManualWrapper = false) {
+      const leading = (piece.match(/^\s*/u) || [""])[0];
+      const trailing = (piece.match(/\s*$/u) || [""])[0];
+      const core = piece.slice(leading.length, piece.length - trailing.length);
+      const previous = previousPiece.trim();
+      if (!core) return piece;
+      if (/^-\s*".*"$/su.test(core)) {
+        const inner = core.replace(/^-\s*"/u, "").slice(0, -1);
+        if (/^-\s*".*"$/su.test(previous) || (preserveManualWrapper && !previous)) {
+          return leading + '-"' + inner + '"' + trailing;
+        }
+        if (/^".*"$/su.test(previous)) return leading + '"' + inner + '"' + trailing;
+        if (/^-\s*\[.*\]$/su.test(previous) || (previous.startsWith("-") && !previous.startsWith('-"'))) {
+          return leading + '-' + inner + trailing;
+        }
+        return leading + inner + trailing;
+      }
+      if (/^-\s*\[.*\]$/su.test(core)) {
+        return leading + (previous.startsWith("-[") ? core : core.replace(/^-\s*/u, "")) + trailing;
+      }
+      if (core.startsWith('-"')) return leading + core.slice(2).replace(/"$/u, "") + trailing;
+      if (core.startsWith("-")) return leading + core.slice(1) + trailing;
+      return piece;
+    }
+    function unformatPhrases(display, previous, preserveManualWrapper = false) {
+      const parts = phrasePieces(display);
+      const prev = phrasePieces(previous);
+      return parts.map((p, i) => unformatPhrasePiece(p.text, prev[i] ? prev[i].text : "", preserveManualWrapper) + p.sep).join("");
+    }
+    function mapWordCursor(oldText, newText, pos) {
+      const oldBefore = oldText.slice(0, pos);
+      const oldCount = (oldBefore.match(/(?:^|[\s,;]+)-(?=[\p{L}\p{N}])/gu) || []).length;
+      const newCount = (newText.match(/(?:^|[\s,;]+)-(?=[\p{L}\p{N}])/gu) || []).length;
+      // Если сам текст не менялся — позицию оставляем.
+      if (oldText === newText) return pos;
+      const oldTokens = wordParts(oldText);
+      let consumed = 0, delta = 0;
+      for (const token of oldTokens) {
+        if (consumed + token.length >= pos) {
+          if (token && !/^[\s,;]+$/u.test(token) && !token.startsWith("-") && /[\p{L}\p{N}]/u.test(token)) delta++;
+          break;
+        }
+        if (token && !/^[\s,;]+$/u.test(token) && !token.startsWith("-") && /[\p{L}\p{N}]/u.test(token)) delta++;
+        consumed += token.length;
+      }
+      return Math.min(newText.length, Math.max(0, pos + delta));
+    }
+    function mapPhraseCursor(oldText, newText, pos) {
+      if (oldText === newText) return pos;
+      const parts = phrasePieces(oldText);
+      let consumedOld = 0, consumedNew = 0;
+      for (const p of parts) {
+        const formatted = formatPhrasePiece(p.text);
+        if (pos <= consumedOld + p.text.length) {
+          const offset = pos - consumedOld;
+          const lead = (p.text.match(/^\s*/u) || [""])[0].length;
+          const oldCore = p.text.trim();
+          const newCore = formatted.trim();
+          let inserted = 0;
+          if (newCore.startsWith('-"') && !oldCore.startsWith('-"')) inserted = oldCore.startsWith('"') || oldCore.startsWith('-') ? 1 : 2;
+          else if (newCore.startsWith('-[') && !oldCore.startsWith('-[')) inserted = 1;
+          return Math.min(newText.length, consumedNew + offset + (offset > lead ? inserted : 0));
+        }
+        consumedOld += p.text.length + p.sep.length;
+        consumedNew += formatted.length + p.sep.length;
+      }
+      return newText.length;
+    }
+    // Стараемся сохранить позицию курсора при очистке, а не отправлять его в конец.
+    function mapCleanPhraseCursor(oldText, newText, pos) {
+      if (oldText === newText) return pos;
+      if (pos === oldText.length) return newText.length;
+      const before = cleanPhraseText(oldText.slice(0, pos));
+      return Math.min(before.length, newText.length);
+    }
+    function replaceKeepingCursor(el, value, calcCursor) {
+      if (el.value === value) return;
+      const active = document.activeElement === el;
+      const old = el.value;
+      const start = active ? el.selectionStart : 0;
+      const end = active ? el.selectionEnd : 0;
+      el.value = value;
+      if (active) {
+        el.setSelectionRange(calcCursor(old, value, start), calcCursor(old, value, end));
+      }
+    }
+    function updateWordsFromInput(e) {
+      const displayed = wordsInput.value;
+      rawWords = dashSetting.checked ? unformatWords(displayed, rawWords) : displayed;
+      if (cleanSetting.checked) rawWords = cleanWordText(rawWords);
+      if (dashSetting.checked || cleanSetting.checked) {
+        const desired = dashSetting.checked ? formatWords(rawWords) : rawWords;
+        replaceKeepingCursor(wordsInput, desired, (o, n, p) => dashSetting.checked ? mapWordCursor(o, n, p) : Math.min(p, n.length));
+      }
+      wordsScroll.edited();
+      scheduleRecalculate();
+      storeTextEdit("words", e);
+    }
+    function updatePhrasesFromInput(e) {
+      const displayed = phrasesInput.value;
+      const cursor = phrasesInput.selectionStart;
+      rawPhrases = quoteSetting.checked ? unformatPhrases(displayed, rawPhrases, e && e.inputType === "insertFromPaste") : displayed;
+      if (cleanPhrasesSetting.checked) rawPhrases = cleanPhraseText(rawPhrases);
+      const desired = quoteSetting.checked ? formatPhrases(rawPhrases) : rawPhrases;
+      if (displayed !== desired) {
+        // Сначала очистка, затем (если включено) форматирование для Коммандера.
+        const cleanDisplayed = cleanPhrasesSetting.checked ? cleanPhraseText(displayed) : displayed;
+        const mappedCleanCursor = cleanPhrasesSetting.checked ? mapCleanPhraseCursor(displayed, cleanDisplayed, cursor) : cursor;
+        const mappedFinalCursor = quoteSetting.checked
+          ? mapPhraseCursor(cleanDisplayed, desired, mappedCleanCursor)
+          : mappedCleanCursor;
+        phrasesInput.value = desired;
+        phrasesInput.setSelectionRange(mappedFinalCursor, mappedFinalCursor);
+      }
+      phrasesScroll.edited();
+      scheduleRecalculate();
+      storeTextEdit("phrases", e);
+    }
+    function setWordsFromCanonical() {
+      wordsInput.value = dashSetting.checked ? formatWords(rawWords) : rawWords;
+      wordsScroll.edited();
+      scheduleRecalculate();
+    }
+    function renderNegativeWordList(words) {
+      const root = $("negativeWordList");
+      const items = Array.from(words, word => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "negative-word-item";
+        button.dataset.word = word;
+        button.textContent = word;
+        button.title = `Убрать «${word}» из минус-слов`;
+        button.setAttribute("aria-label", `Убрать «${word}» из минус-слов`);
+        return button;
+      });
+      root.replaceChildren(...items);
+      root.hidden = items.length === 0;
+    }
+    function removeNegativeWord(word) {
+      const parts = rawWords.split(/([\s,;]+)/u);
+      for (let i = parts.length - 1; i >= 0; i -= 2) {
+        const current = parts[i].replace(/^[-!+]+/u, "");
+        if (normalizedWord(current) !== normalizedWord(word)) continue;
+        if (i + 1 < parts.length) parts.splice(i, 2);
+        else if (i > 0) parts.splice(i - 1, 2);
+        else parts.splice(i, 1);
+      }
+      rawWords = parts.join("").trim();
+      if (cleanSetting.checked) rawWords = cleanWordText(rawWords, true);
+      setWordsFromCanonical();
+      storeHistory("action", "remove-word");
+    }
+    function setPhrasesFromCanonical() {
+      phrasesInput.value = quoteSetting.checked ? formatPhrases(rawPhrases) : rawPhrases;
+      phrasesScroll.edited();
+      scheduleRecalculate();
+    }
+
+    // Не пересоздаём кликабельные слова, если видимый список не изменился.
+    // Иначе пересчёт после ухода из поля Минус-фраз может оборвать
+    // первое же выделение мышью, пока пользователь протягивает курсор.
+    let lastRenderedClickable = null;
+    function renderGroupChips() {
+      const root = $("groupChips");
+      root.replaceChildren(...groups.map(group => {
+        const chip = document.createElement("span");
+        chip.className = "group-chip";
+        chip.textContent = `${group.short} — ${group.name}`;
+        return chip;
+      }));
+    }
+    function assignedGroup(line) {
+      const value = assignments[line];
+      const candidates = Array.isArray(value) ? value : [value];
+      return candidates.find(id => groups.some(group => group.id === id)) || null;
+    }
+    function moveGroup(groupId, offset) {
+      const index = groups.findIndex(group => group.id === groupId);
+      const target = index + offset;
+      if (index < 0 || target < 0 || target >= groups.length) return;
+      [groups[index], groups[target]] = [groups[target], groups[index]];
+      renderGroupChips();
+      lastRenderedClickable = null;
+      recalculate();
+      scheduleSave();
+    }
+    function deleteGroup(groupId) {
+      if (groups.length <= 1) return;
+      groups = groups.filter(group => group.id !== groupId);
+      for (const [line, assigned] of Object.entries(assignments)) {
+        if (assigned === groupId || (Array.isArray(assigned) && assigned.includes(groupId))) delete assignments[line];
+      }
+      renderGroupChips();
+      lastRenderedClickable = null;
+      recalculate();
+      scheduleSave();
+    }
+    function renameGroup(group, title, controls) {
+      const input = document.createElement("input");
+      input.className = "group-rename-input";
+      input.value = group.name;
+      input.maxLength = 30;
+      input.setAttribute("aria-label", `Новое название группы «${group.name}»`);
+      title.replaceWith(input);
+      controls.replaceChildren();
+      const groupIndex = groups.findIndex(item => item.id === group.id);
+      const left = document.createElement("button");
+      left.type = "button";
+      left.className = "group-control";
+      left.textContent = "←";
+      left.title = "Переместить группу влево";
+      left.disabled = groupIndex === 0;
+      left.addEventListener("click", () => moveGroup(group.id, -1));
+      const right = document.createElement("button");
+      right.type = "button";
+      right.className = "group-control";
+      right.textContent = "→";
+      right.title = "Переместить группу вправо";
+      right.disabled = groupIndex === groups.length - 1;
+      right.addEventListener("click", () => moveGroup(group.id, 1));
+      const save = document.createElement("button");
+      save.type = "button";
+      save.className = "group-control group-rename";
+      save.textContent = "Сохранить";
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "group-control group-delete";
+      remove.textContent = "Удалить";
+      remove.disabled = groups.length <= 1;
+      remove.addEventListener("click", () => deleteGroup(group.id));
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.className = "group-control";
+      cancel.textContent = "×";
+      const commit = () => {
+        const name = input.value.trim();
+        if (!name || groups.some(item => item.id !== group.id && item.name.toLocaleLowerCase("ru-RU") === name.toLocaleLowerCase("ru-RU"))) {
+          input.focus();
+          return;
+        }
+        group.name = name;
+        group.short = (name.match(/[\p{L}\p{N}]/u)?.[0] || "+").toLocaleUpperCase("ru-RU");
+        renderGroupChips();
+        lastRenderedClickable = null;
+        recalculate();
+        scheduleSave();
+      };
+      save.addEventListener("click", commit);
+      cancel.addEventListener("click", () => recalculate());
+      input.addEventListener("keydown", event => {
+        if (event.key === "Enter") { event.preventDefault(); commit(); }
+        if (event.key === "Escape") { event.preventDefault(); recalculate(); }
+      });
+      controls.append(left, right, save, remove, cancel);
+      input.focus();
+      input.select();
+    }
+    function renderGroupLists(lines) {
+      const root = $("groupLists");
+      root.replaceChildren(...groups.map(group => {
+        const block = document.createElement("article");
+        block.className = "group-list";
+        const grouped = lines.filter(line => assignedGroup(line) === group.id);
+        const head = document.createElement("div");
+        head.className = "group-list-head";
+        const title = document.createElement("span");
+        title.className = "group-list-title";
+        title.textContent = group.name;
+        const count = document.createElement("span");
+        count.textContent = formatter.format(grouped.length);
+        const controls = document.createElement("div");
+        controls.className = "group-list-controls";
+        const rename = document.createElement("button");
+        rename.type = "button";
+        rename.className = "group-control group-edit";
+        rename.textContent = "✏️";
+        rename.title = "Изменить группу";
+        rename.setAttribute("aria-label", `Изменить группу «${group.name}»`);
+        rename.addEventListener("click", () => renameGroup(group, title, controls));
+        const copy = document.createElement("button");
+        copy.type = "button";
+        copy.className = "group-control group-copy";
+        copy.textContent = "Копировать";
+        copy.title = `Скопировать группу «${group.name}»`;
+        copy.addEventListener("click", () => copyWithFeedback(copy, formatQueryLines(grouped)));
+        controls.append(copy, rename);
+        head.append(title, count, controls);
+        const items = document.createElement("div");
+        items.className = "group-list-items";
+        if (!grouped.length) {
+          const empty = document.createElement("div");
+          empty.className = "group-list-empty";
+          empty.textContent = "Список пуст";
+          items.append(empty);
+        } else {
+          for (const line of grouped) {
+            const parsed = parseQueryLine(line);
+            const item = document.createElement("div");
+            item.className = "group-list-item";
+            const text = document.createElement("div");
+            text.className = "group-list-text";
+            text.textContent = parsed.phrase;
+            item.append(text);
+            if (frequencyMode.checked) {
+              const frequency = document.createElement("div");
+              frequency.className = "group-list-frequency";
+              frequency.textContent = parsed.frequency;
+              item.append(frequency);
+            }
+            const back = document.createElement("button");
+            back.type = "button";
+            back.className = "group-list-return";
+            back.textContent = "×";
+            back.title = "Вернуть в нераспределённые";
+            back.setAttribute("aria-label", `Вернуть «${line}» в нераспределённые`);
+            back.addEventListener("click", () => {
+              delete assignments[line];
+              lastRenderedClickable = null;
+              recalculate();
+              scheduleSave();
+            });
+            item.append(back);
+            items.append(item);
+          }
+        }
+        block.append(head, items);
+        return block;
+      }));
+    }
+    function toggleGroup(row, column) {
+      const line = lastVisible[row];
+      const group = groups[column];
+      if (line === undefined || !group) return;
+      assignments[line] = group.id;
+      lastRenderedClickable = null;
+      recalculate();
+      scheduleSave();
+      requestAnimationFrame(() => {
+        const nextRow = Math.min(row, Math.max(0, lastVisible.length - 1));
+        clickableOutput.querySelector(`[data-group-row="${nextRow}"][data-group-column="${column}"]`)?.focus();
+      });
+    }
+    function renderClickable(lines) {
+      if (lastRenderedClickable && lines.length === lastRenderedClickable.length &&
+          lines.every((line, i) => line === lastRenderedClickable[i])) return;
+      const scrollTop = clickableOutput.scrollTop;
+      const grid = document.createElement("div");
+      grid.className = "query-grid";
+      if (frequencyMode.checked) grid.classList.add("with-frequency");
+      grid.style.setProperty("--group-columns", `repeat(${groups.length}, 42px)`);
+      const header = document.createElement("div");
+      header.className = "query-row query-row-header";
+      for (const group of groups) {
+        const cell = document.createElement("div");
+        cell.className = "group-head";
+        cell.textContent = group.short;
+        cell.title = group.name;
+        header.append(cell);
+      }
+      const phraseHead = document.createElement("div");
+      phraseHead.className = "query-text";
+      phraseHead.textContent = "Поисковый запрос";
+      header.append(phraseHead);
+      if (frequencyMode.checked) {
+        const frequencyHead = document.createElement("div");
+        frequencyHead.className = "query-frequency";
+        frequencyHead.textContent = "Частотность";
+        header.append(frequencyHead);
+      }
+      grid.append(header);
+      const matcher = /[\p{L}\p{N}]+(?:\.[0-9]+)?/gu;
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const parsed = parseQueryLine(line);
+        const row = document.createElement("div");
+        row.className = "query-row";
+        groups.forEach((group, column) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "group-cell";
+          button.dataset.groupRow = String(i);
+          button.dataset.groupColumn = String(column);
+          button.setAttribute("role", "checkbox");
+          button.setAttribute("aria-checked", "false");
+          button.setAttribute("aria-label", `${parsed.phrase}: ${group.name}`);
+          button.title = group.name;
+          row.append(button);
+        });
+        const text = document.createElement("div");
+        text.className = "query-text";
+        let last = 0;
+        matcher.lastIndex = 0;
+        let match;
+        while ((match = matcher.exec(parsed.phrase)) !== null) {
+          if (match.index > last) text.append(document.createTextNode(parsed.phrase.slice(last, match.index)));
+          const span = document.createElement("span");
+          span.className = "clickable-word";
+          span.textContent = match[0];
+          span.dataset.word = match[0];
+          span.title = `Добавить «${match[0]}» в минус-слова`;
+          text.append(span);
+          last = match.index + match[0].length;
+        }
+        if (last < parsed.phrase.length) text.append(document.createTextNode(parsed.phrase.slice(last)));
+        row.append(text);
+        if (frequencyMode.checked) {
+          const frequency = document.createElement("div");
+          frequency.className = "query-frequency";
+          frequency.textContent = parsed.frequency;
+          row.append(frequency);
+        }
+        grid.append(row);
+      }
+      clickableOutput.replaceChildren(grid);
+      lastRenderedClickable = lines.slice();
+      clickableOutput.scrollTop = scrollTop;
+    }
+    function recalculate() {
+      if (queriesInput.value !== sourceCache.value) {
+        sourceCache = { value: queriesInput.value, lines: queriesInput.value.split(/\r?\n/u).map(s => s.trim()).filter(Boolean) };
+        queueMorphology(sourceCache.lines.flatMap(line => getWords(queryPhrase(line))));
+      }
+      const lines = sourceCache.lines;
+      const warnings = [];
+      const negativeWords = getNegativeWords(wordsInput.value, warnings);
+      const draftPending = document.activeElement === phrasesInput && !/[,\n]\s*$/u.test(rawPhrases);
+      const negativePhrases = getNegativePhrases(rawPhrases, warnings, draftPending);
+      queueMorphology([...negativeWords, ...negativePhrases.flatMap(phrase => phrase.words)]);
+      const negativeWordKeys = new Set(Array.from(negativeWords, morphKey));
+      const remaining = [];
+      for (const line of lines) {
+        const words = getWords(queryPhrase(line));
+        const query = { words, counts: countsOf(words) };
+        let excluded = words.some(w => negativeWordKeys.has(morphKey(w)));
+        if (!excluded) excluded = negativePhrases.some(p => phraseMatches(query, p));
+        if (!excluded) remaining.push(line);
+      }
+      const unassigned = remaining.filter(line => !assignedGroup(line));
+      lastRemaining = unassigned;
+      lastVisible = visibleByLength(unassigned);
+      // Опции меняют только отображение; базовая минусация остаётся прежней.
+      renderClickable(lastVisible);
+      renderGroupLists(remaining);
+      renderNegativeWordList(negativeWords);
+      $("sourceLabel").textContent = `${formatter.format(lines.length)} строк`;
+      $("wordLabel").textContent = `${formatter.format(negativeWords.size)} слов`;
+      $("phraseLabel").textContent = `${formatter.format(negativePhrases.length)} фраз`;
+      $("totalCount").textContent = formatter.format(lines.length);
+      $("excludedCount").textContent = formatter.format(lines.length - remaining.length);
+      $("remainingCount").textContent = formatter.format(unassigned.length);
+      $("shownCount").textContent = formatter.format(lastVisible.length);
+      $("shownMetric").hidden = activeLengths().size === 0;
+      const warningBox = $("warning");
+      if (warnings.length) {
+        warningBox.textContent = `Не применены некоторые записи (${warnings.length}): ${warnings.slice(0, 3).join("; ")}${warnings.length > 3 ? "; …" : ""}.`;
+        warningBox.classList.add("visible");
+      } else {
+        warningBox.textContent = "";
+        warningBox.classList.remove("visible");
+      }
+    }
+    function scheduleRecalculate() {
+      if (timer !== null) clearTimeout(timer);
+      timer = setTimeout(() => { timer = null; recalculate(); }, 85);
+    }
+    noteInput.addEventListener("input", e => {
+      syncPageTitle();
+      storeTextEdit("note", e);
+    });
+    lengthChecks.forEach(ch => ch.addEventListener("change", () => {
+      recalculate();
+      storeHistory("action", "length");
+    }));
+    showAllButton.addEventListener("click", () => {
+      lengthChecks.forEach(ch => { ch.checked = false; });
+      recalculate();
+      storeHistory("action", "length");
+    });
+    resultOptionsButton.addEventListener("click", () => {
+      const open = resultOptionsMenu.hidden;
+      resultOptionsMenu.hidden = !open;
+      resultOptionsButton.setAttribute("aria-expanded", String(open));
+      if (open) {
+        settingsMenu.hidden = true;
+        settingsButton.setAttribute("aria-expanded", "false");
+      }
+    });
+    queriesInput.addEventListener("input", e => {
+      scheduleRecalculate();
+      storeTextEdit("queries", e);
+    });
+    wordsInput.addEventListener("input", updateWordsFromInput);
+    $("negativeWordList").addEventListener("click", event => {
+      const button = event.target.closest(".negative-word-item");
+      if (button) removeNegativeWord(button.dataset.word);
+    });
+    phrasesInput.addEventListener("input", updatePhrasesFromInput);
+    phrasesInput.addEventListener("focus", scheduleRecalculate);
+    phrasesInput.addEventListener("blur", scheduleRecalculate);
+    // После каждой вставки автоматически готовим отдельную новую строку.
+    // При вставке готового многострочного списка лишний Enter не добавляется.
+    phrasesInput.addEventListener("paste", e => {
+      const clipboard = e.clipboardData;
+      if (!clipboard) return;
+      const text = clipboard.getData("text/plain");
+      if (!text) return;
+      e.preventDefault();
+      const original = phrasesInput.value;
+      const start = phrasesInput.selectionStart;
+      const end = phrasesInput.selectionEnd;
+      const before = original.slice(0, start);
+      const after = original.slice(end);
+      const pasted = text.replace(/\r\n?/gu, "\n").replace(/\n+$/u, "");
+      const previousLine = before.slice(before.lastIndexOf("\n") + 1);
+      const atEndOfLine = !after || after.startsWith("\n");
+      const needsLeadingLine = atEndOfLine && previousLine.trim() !== "" && !/[,\n]\s*$/u.test(before);
+      const prefix = needsLeadingLine ? "\n" : "";
+      const needsTrailingLine = !after.startsWith("\n");
+      const insertion = prefix + pasted + (needsTrailingLine ? "\n" : "");
+      phrasesInput.setRangeText(insertion, start, end, "end");
+      updatePhrasesFromInput({ inputType: "insertFromPaste" });
+      // В стандартном сценарии (вставка в конец) курсор остаётся на пустой строке.
+      if (!after && insertion.endsWith("\n")) {
+        phrasesInput.setSelectionRange(phrasesInput.value.length, phrasesInput.value.length);
+      }
+      phrasesScroll.edited();
+    });
+
+    wordsInput.addEventListener("blur", () => {
+      if (cleanSetting.checked) {
+        rawWords = cleanWordText(rawWords, true);
+        setWordsFromCanonical();
+        storeHistory("action", "words");
+      }
+    });
+    // В режиме авто-кавычек Enter и запятая завершают текущую фразу,
+    // а не попадают внутрь автоматически сформированных кавычек.
+    phrasesInput.addEventListener("keydown", e => {
+      if (!quoteSetting.checked || (e.key !== "Enter" && e.key !== ",") || e.ctrlKey || e.metaKey || e.altKey) return;
+      e.preventDefault();
+      const full = phrasesInput.value;
+      const pos = phrasesInput.selectionStart;
+      const lineEnd = full.indexOf("\n", pos);
+      const target = lineEnd < 0 ? full.length : lineEnd;
+      const delim = e.key === "Enter" ? "\n" : ", ";
+      phrasesInput.setRangeText(delim, target, target, "end");
+      updatePhrasesFromInput();
+    });
+    clickSetting.addEventListener("change", () => {
+      syncClickableView();
+      storeHistory("action", "setting");
+    });
+    cleanSetting.addEventListener("change", () => {
+      if (cleanSetting.checked) {
+        rawWords = cleanWordText(rawWords, true);
+        setWordsFromCanonical();
+      }
+      // При обычном выключении очистка не откатывается; Ctrl/Cmd+Z отменяет действие.
+      storeHistory("action", "setting");
+    });
+    cleanPhrasesSetting.addEventListener("change", () => {
+      if (cleanPhrasesSetting.checked) {
+        rawPhrases = cleanPhraseText(rawPhrases);
+        setPhrasesFromCanonical();
+      }
+      // Выключение не возвращает ранее удалённые символы.
+      storeHistory("action", "setting");
+    });
+    dashSetting.addEventListener("change", () => {
+      setWordsFromCanonical();
+      storeHistory("action", "setting");
+    });
+    quoteSetting.addEventListener("change", () => {
+      setPhrasesFromCanonical();
+      storeHistory("action", "setting");
+    });
+    frequencyMode.addEventListener("change", () => {
+      sourceCache.value = null;
+      lastRenderedClickable = null;
+      recalculate();
+      storeHistory("action", "setting");
+    });
+    copyFrequencySetting.addEventListener("change", () => {
+      storeHistory("action", "setting");
+    });
+    undoButton.addEventListener("click", undo);
+    redoButton.addEventListener("click", redo);
+    clickableOutput.addEventListener("keydown", e => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        const range = document.createRange();
+        range.selectNodeContents(clickableOutput);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return;
+      }
+      const cell = e.target.closest(".group-cell");
+      if (!cell) return;
+      const row = Number(cell.dataset.groupRow);
+      const column = Number(cell.dataset.groupColumn);
+      if (e.key === " " || e.key === "1") {
+        e.preventDefault();
+        toggleGroup(row, column);
+        return;
+      }
+      const direction = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
+      if (!direction) return;
+      e.preventDefault();
+      const nextRow = Math.max(0, Math.min(lastVisible.length - 1, row + direction[0]));
+      const nextColumn = Math.max(0, Math.min(groups.length - 1, column + direction[1]));
+      clickableOutput.querySelector(`[data-group-row="${nextRow}"][data-group-column="${nextColumn}"]`)?.focus();
+    });
+    clickableOutput.addEventListener("click", e => {
+      const cell = e.target.closest(".group-cell");
+      if (!cell) return;
+      toggleGroup(Number(cell.dataset.groupRow), Number(cell.dataset.groupColumn));
+    });
+    // Отличаем короткий клик по слову от протягивания мышью для выделения.
+    // Не проверяем window.getSelection(): выделение после предыдущего копирования
+    // может остаться активным даже после перехода к полю Минус-фраз.
+    // Иначе первый клик лишь снимает старое выделение, но не минусует слово.
+    let resultPointerGesture = null;
+    clickableOutput.addEventListener("pointerdown", e => {
+      if (e.button !== 0 || !e.isPrimary) return;
+      resultPointerGesture = {
+        id: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        dragged: false
+      };
+    });
+    window.addEventListener("pointermove", e => {
+      const gesture = resultPointerGesture;
+      if (!gesture || e.pointerId !== gesture.id || gesture.dragged) return;
+      if (Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 4) {
+        gesture.dragged = true;
+      }
+    });
+    window.addEventListener("pointercancel", e => {
+      if (resultPointerGesture?.id === e.pointerId) resultPointerGesture = null;
+    });
+    clickableOutput.addEventListener("click", e => {
+      const dragged = resultPointerGesture?.dragged || false;
+      resultPointerGesture = null;
+      const span = e.target.closest(".clickable-word");
+      if (!clickSetting.checked || !span || dragged) return;
+      const word = span.dataset.word;
+      rawWords += (rawWords && !/[\s,;]$/u.test(rawWords) ? " " : "") + word;
+      if (cleanSetting.checked) rawWords = cleanWordText(rawWords);
+      setWordsFromCanonical();
+      storeHistory("action", "click");
+    });
+
+    // Копирование результатов учитывает текущие Опции отображения,
+    // но не меняет исходные запросы и общие счётчики минусации.
+    async function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try { await navigator.clipboard.writeText(text); return true; } catch (_) { /* fallback */ }
+      }
+      const tmp = document.createElement("textarea");
+      tmp.value = text;
+      tmp.setAttribute("readonly", "");
+      tmp.style.cssText = "position:fixed;top:0;left:-9999px;opacity:0";
+      const focused = document.activeElement;
+      const selection = window.getSelection();
+      const ranges = [];
+      if (selection) for (let i=0; i<selection.rangeCount; i++) ranges.push(selection.getRangeAt(i).cloneRange());
+      document.body.append(tmp);
+      tmp.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (_) { /* unsupported */ }
+      tmp.remove();
+      if (focused && typeof focused.focus === "function") focused.focus({preventScroll:true});
+      if (selection && ranges.length) {
+        selection.removeAllRanges();
+        for (const range of ranges) selection.addRange(range);
+      }
+      return ok;
+    }
+    async function copyWithFeedback(button, content) {
+      const label = button.textContent;
+      const copied = await copyText(content);
+      button.textContent = copied ? "Скопировано ✓" : "Не удалось скопировать";
+      clearTimeout(button.copyMessageTimer);
+      button.copyMessageTimer = setTimeout(() => { button.textContent = label; }, 1500);
+    }
+    const fieldByName = { words: wordsInput, phrases: phrasesInput, queries: queriesInput };
+    document.querySelectorAll("[data-copy]").forEach(button => {
+      button.addEventListener("click", async () => {
+        const name = button.dataset.copy;
+        let content;
+        if (name === "remaining") content = formatQueryLines(lastVisible);
+        else if (name === "queries") content = formatQueryLines(queriesInput.value.split(/\r?\n/u).map(line => line.trim()).filter(Boolean));
+        else content = fieldByName[name].value;
+        // Последний автоматически добавленный перенос строки нужен для ввода,
+        // но не должен попадать в Директ Коммандер вместе с минус-фразами.
+        if (name === "phrases") content = content.replace(/\s+$/u, "");
+        await copyWithFeedback(button, content);
+      });
+    });
+    document.querySelectorAll("[data-clear]").forEach(button => {
+      button.addEventListener("click", () => {
+        const name = button.dataset.clear;
+        const target = fieldByName[name];
+        if (!target || !target.value) return; // Пустое поле не создаёт историю.
+        // Надёжно сохраняем именно состояние ДО очистки. Это покрывает
+        // и многоразовые вставки, и автоматическое оформление минус-фраз.
+        storeHistory("action", "before-clear");
+        if (name === "words") {
+          rawWords = "";
+          wordsInput.value = "";
+        } else if (name === "phrases") {
+          rawPhrases = "";
+          phrasesInput.value = "";
+        } else if (name === "queries") {
+          queriesInput.value = "";
+        }
+        if (name === "words") wordsScroll.edited();
+        if (name === "phrases") phrasesScroll.edited();
+        scheduleRecalculate();
+        storeHistory("action", "clear");
+      });
+    });
+
+    $("groupAddForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const input = $("groupName");
+      const name = input.value.trim();
+      if (!name || groups.some(group => group.name.toLocaleLowerCase("ru-RU") === name.toLocaleLowerCase("ru-RU"))) return;
+      groups.push({
+        id: `group-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+        name,
+        short: (name.match(/[\p{L}\p{N}]/u)?.[0] || "+").toLocaleUpperCase("ru-RU")
+      });
+      input.value = "";
+      renderGroupChips();
+      lastRenderedClickable = null;
+      recalculate();
+      scheduleSave();
+    });
+    $("exportProject").addEventListener("click", exportProject);
+    $("importProject").addEventListener("click", () => $("importProjectFile").click());
+    $("importProjectFile").addEventListener("change", async e => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file) return;
+      try {
+        const state = JSON.parse(await file.text());
+        applyProjectState(state);
+        history = [snapshot()];
+        historyIndex = 0;
+        syncHistoryButtons();
+        await saveNow();
+      } catch (error) {
+        $("saveStatus").textContent = error instanceof Error ? error.message : "Не удалось импортировать проект";
+      }
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden" && saveTimer !== null) void saveNow();
+    });
+
+    settingsButton.addEventListener("click", () => {
+      const open = settingsMenu.hidden;
+      settingsMenu.hidden = !open;
+      settingsButton.setAttribute("aria-expanded", String(open));
+      if (open) {
+        resultOptionsMenu.hidden = true;
+        resultOptionsButton.setAttribute("aria-expanded", "false");
+      }
+    });
+    document.addEventListener("pointerdown", e => {
+      if (!settingsRoot.contains(e.target)) {
+        settingsMenu.hidden = true;
+        settingsButton.setAttribute("aria-expanded", "false");
+      }
+      if (!resultOptionsRoot.contains(e.target)) {
+        resultOptionsMenu.hidden = true;
+        resultOptionsButton.setAttribute("aria-expanded", "false");
+      }
+    });
+    document.addEventListener("keydown", e => {
+      // Своя история заменяет браузерную в трёх полях и работает после кликов.
+      const mod = (e.ctrlKey || e.metaKey) && !e.altKey && !e.isComposing;
+      // Для русской раскладки e.key может быть «я»/«н», а не «z»/«y».
+      // Используем физические клавиши KeyZ/KeyY и резервное сравнение символов.
+      // Это особенно важно после кнопки «Очистить»: браузер сам не умеет
+      // откатывать программное изменение значения textarea.
+      const key = e.key.toLowerCase();
+      const undoKey = e.code === "KeyZ" || key === "z" || key === "я";
+      const redoKey = e.code === "KeyY" || key === "y" || key === "н";
+      if (mod && (undoKey || (redoKey && !e.shiftKey))) {
+        e.preventDefault();
+        if (undoKey && !e.shiftKey) undo();
+        else redo();
+        return;
+      }
+      if (e.key === "Escape" && !settingsMenu.hidden) {
+        settingsMenu.hidden = true;
+        settingsButton.setAttribute("aria-expanded", "false");
+        settingsButton.focus();
+      } else if (e.key === "Escape" && !resultOptionsMenu.hidden) {
+        resultOptionsMenu.hidden = true;
+        resultOptionsButton.setAttribute("aria-expanded", "false");
+        resultOptionsButton.focus();
+      }
+    });
+    async function initialize() {
+      try {
+        const saved = await databaseGet("current");
+        if (saved && validProjectState(saved)) applyProjectState(saved);
+        else {
+          if (cleanSetting.checked) {
+            rawWords = cleanWordText(rawWords, true);
+            wordsInput.value = dashSetting.checked ? formatWords(rawWords) : rawWords;
+          }
+          if (cleanPhrasesSetting.checked) {
+            rawPhrases = cleanPhraseText(rawPhrases);
+            phrasesInput.value = quoteSetting.checked ? formatPhrases(rawPhrases) : rawPhrases;
+          }
+          renderGroupChips();
+          syncClickableView();
+          recalculate();
+        }
+        $("saveStatus").textContent = saved ? "Прошлая сессия восстановлена" : "Автосохранение включено";
+      } catch (_) {
+        renderGroupChips();
+        syncClickableView();
+        recalculate();
+        $("saveStatus").textContent = "Автосохранение недоступно";
+      }
+      history = [snapshot()];
+      historyIndex = 0;
+      syncHistoryButtons();
+      updateMorphStatus();
+    }
+    void initialize();
+  })();
+
+  </script>
+</body>
+</html>

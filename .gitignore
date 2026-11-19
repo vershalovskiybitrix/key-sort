@@ -1,0 +1,12 @@
+.env
+*.pem
+*.key
+*.pfx
+*.sqlite
+*.db
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+BackUp*/
+backup*/
