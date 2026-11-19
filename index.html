@@ -257,7 +257,7 @@
           <label class="setting-row"><input type="checkbox" id="settingCleanPhrases" checked><span>Удалять лишние символы в Минус-фразах</span></label>
           <label class="setting-row"><input type="checkbox" id="settingDash"><span>Автоматически добавлять «-» к Минус-словам</span></label>
           <label class="setting-row"><input type="checkbox" id="settingQuote"><span>Автоматически минусовать Минус-фразы</span></label>
-          <label class="setting-row"><input type="checkbox" id="settingCopyFrequency" checked><span>Копировать с частотностями</span></label>
+          <label class="setting-row"><input type="checkbox" id="settingCopyFrequency"><span>Копировать с частотностями</span></label>
           <label class="setting-row"><input type="checkbox" id="settingSiteFonts" checked><span>Шрифты vershalovskiy.com (выключено — Arial)</span></label>
         </div>
       </div>
@@ -541,7 +541,7 @@
       dashSetting.checked = state.dash;
       quoteSetting.checked = state.quote;
       frequencyMode.checked = Boolean(state.frequencyMode);
-      copyFrequencySetting.checked = state.copyFrequency !== false;
+      copyFrequencySetting.checked = Boolean(state.copyFrequency);
       siteFontsSetting.checked = state.siteFonts !== false;
       syncFontMode();
       syncClickableView();
@@ -677,6 +677,7 @@
           quote: quoteSetting.checked,
           frequencyMode: frequencyMode.checked,
           copyFrequency: copyFrequencySetting.checked,
+          copyFrequencyVersion: 2,
           siteFonts: siteFontsSetting.checked
         }
       };
@@ -712,7 +713,7 @@
       dashSetting.checked = Boolean(settings.dash);
       quoteSetting.checked = Boolean(settings.quote);
       frequencyMode.checked = Boolean(settings.frequencyMode);
-      copyFrequencySetting.checked = settings.copyFrequency !== false;
+      copyFrequencySetting.checked = Number(settings.copyFrequencyVersion) >= 2 && Boolean(settings.copyFrequency);
       siteFontsSetting.checked = settings.siteFonts !== false;
       syncFontMode();
       sourceCache.value = null;
