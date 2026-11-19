@@ -198,7 +198,7 @@
     .group-delete { width: 64px; }
     .group-copy { width: 92px; }
     .group-rename-input { width: 100%; height: 30px; border: 1px solid #888; padding: 0 7px; font: 400 14px/1 var(--font-body); background: #fff; }
-    .group-add-section { margin-top: 12px; display: flex; justify-content: flex-end; }
+    .group-add-section { display: flex; justify-content: flex-end; align-self: start; }
     .result-status { min-height: 18px; margin: 0 0 8px; display: flex; justify-content: flex-end; }
     .result-panel { grid-column: span 2; }
     @media(max-width: 780px) {
@@ -345,13 +345,13 @@
           <div class="lemma-frequency-empty">Нажмите «Обновить»</div>
         </div>
       </article>
-    </section>
-    <section class="group-add-section" aria-label="Добавление группы">
-      <div id="groupChips" hidden></div>
-      <form class="group-add" id="groupAddForm">
-        <input id="groupName" maxlength="30" placeholder="Название новой группы" aria-label="Название новой группы">
-        <button type="submit" class="field-button">Добавить группу</button>
-      </form>
+      <section class="group-add-section" id="groupAddSection" aria-label="Добавление группы">
+        <div id="groupChips" hidden></div>
+        <form class="group-add" id="groupAddForm">
+          <input id="groupName" maxlength="30" placeholder="Название новой группы" aria-label="Название новой группы">
+          <button type="submit" class="field-button">Добавить группу</button>
+        </form>
+      </section>
     </section>
 
     <div class="source-panel">
@@ -1385,7 +1385,7 @@
         }
         block.append(head, items);
         return block;
-      }));
+      }), $("groupAddSection"));
     }
     function toggleGroup(row, column) {
       const line = lastVisible[row];
