@@ -106,8 +106,6 @@
     .metric strong { font-size: 22px; line-height: 1.2; font-variant-numeric: tabular-nums; }
     .metric.excluded strong { color: var(--danger); }
     .metric.remaining strong { color: var(--success); }
-    #remainingQueries { flex: 1 1 auto; height: 380px; min-height: 250px; background: #fbfcfe; }
-    #remainingQueries:focus { background: #fff; }
     .bottom-help { color: var(--muted); font-size: 12px; margin: 10px 1px 0; }
     .warning { display: none; background: transparent; color: #000; padding: 10px 12px; border-radius: 0; border: 1px solid #000; font-size: 12px; margin-top: 12px; line-height: 1.5; overflow-wrap: anywhere; }
     .warning.visible { display: block; }
@@ -115,7 +113,6 @@
       main { padding: 20px 13px 40px; }
       .top-layout { grid-template-columns: minmax(0,1fr); }
       #queries { height: 352px; }
-      #remainingQueries { height: 320px; flex: initial; }
       #negativeWords, #negativePhrases { height: 125px; min-height: 125px; flex: none; }
       .stack { display: flex; }
       .panel { padding: 15px; }
@@ -130,7 +127,7 @@
     .settings-button:hover, .settings-button[aria-expanded="true"] { border-color: #000; background: #000; color: #fff; }
     .settings-button:focus-visible { outline: 2px solid #000; outline-offset: 2px; }
     .settings-menu { width: min(370px, calc(100vw - 30px)); position: absolute; top: calc(100% + 9px); right: 0; z-index: 20; background: #e9e9e8; border: 1px solid #888; box-shadow: none; border-radius: 0; padding: 10px; }
-    .settings-menu[hidden], #clickableResults[hidden], #remainingQueries[hidden] { display: none !important; }
+    .settings-menu[hidden], #clickableResults[hidden] { display: none !important; }
     .settings-heading { padding: 6px 10px 9px; font-size: 13px; color: var(--muted); font-weight: 700; }
     .setting-row { display: flex; align-items: flex-start; gap: 11px; padding: 10px; border-radius: 0; cursor: pointer; line-height: 1.3; font-size: 13px; }
     .setting-row:hover { background: #eee; }
@@ -144,17 +141,18 @@
     .group-add { display: flex; justify-content: flex-end; gap: 8px; }
     .group-add input { width: 260px; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 10px; font: 13px/1.2 var(--font-body); background: #fff; }
     .query-grid { min-width: 100%; width: max-content; }
-    .query-row { display: grid; grid-template-columns: var(--group-columns) minmax(430px, 1fr); min-height: 24px; border-bottom: 1px solid #e1e1df; }
+    .query-row { display: grid; grid-template-columns: var(--group-columns) minmax(430px, 1fr); height: 24px; min-height: 24px; overflow: hidden; border-bottom: 1px solid #e1e1df; }
     .query-grid.with-frequency .query-row { grid-template-columns: var(--group-columns) minmax(430px, 1fr) 120px; }
     .query-row:last-child { border-bottom: 0; }
-    .query-row-header { position: sticky; top: 0; z-index: 3; min-height: 30px; background: #efefed; font-weight: 700; border-bottom: 1px solid #aaa; }
+    .query-row-header { position: sticky; top: 0; z-index: 3; height: 30px; min-height: 30px; background: #efefed; font-weight: 700; border-bottom: 1px solid #aaa; }
     .group-head, .group-cell { width: 42px; display: grid; place-items: center; border-right: 1px solid #ddd; }
     .group-head { font-size: 12px; }
     .group-cell { appearance: none; margin: 0; padding: 0; border: 0; border-right: 1px solid #ddd; border-radius: 0; background: #fff; cursor: pointer; color: #111; font: 700 16px/1 var(--font-body); }
     .group-cell::after { content: ""; width: 15px; height: 15px; border: 1px solid #999; }
     .group-cell[aria-checked="true"]::after { content: "✓"; display: grid; place-items: center; color: #fff; background: #111; border-color: #111; font-size: 12px; }
     .group-cell:focus { position: relative; z-index: 2; outline: 3px solid #111; outline-offset: -3px; }
-    .query-text { min-width: 430px; padding: 4px 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .query-text { min-width: 430px; padding: 4px 10px; white-space: nowrap; }
+    .query-virtual-spacer { width: 1px; }
     .query-frequency { width: 120px; padding: 4px 10px; border-left: 1px solid #ddd; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .morph-status { font-size: 11px; color: var(--muted); margin-left: auto; }
     .project-actions { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
@@ -290,7 +288,6 @@
         </div>
       </div>
       <div class="result-status"><span class="morph-status" id="morphStatus">Морфология: подготовка</span></div>
-      <textarea id="remainingQueries" readonly spellcheck="false" aria-label="Оставшиеся поисковые запросы" placeholder="Сюда автоматически попадут оставшиеся запросы"></textarea>
       <div id="clickableResults" class="clickable-results" tabindex="0" role="region" aria-label="Оставшиеся поисковые запросы — нажмите на слово, чтобы отминусовать" hidden></div>
       <div class="bottom-help" id="resultCopyHelp">Скопируй весь список кнопкой сверху или выдели текст вручную.</div>
       <div id="warning" class="warning" role="status"></div>
@@ -315,8 +312,8 @@
         <section class="panel" aria-labelledby="phraseTitle">
           <div class="panel-head">
             <div>
-              <h2 class="panel-title" id="phraseTitle">Минус-фразы</h2>
-              <div class="help">Каждая фраза с <strong>новой строки</strong> (или через запятую).</div>
+              <h2 class="panel-title" id="phraseTitle">Минус-фразы и спецсимволы</h2>
+              <div class="help">Обычная фраза исключает запросы со всеми её словами. <strong>!</strong> фиксирует словоформу, <strong>+</strong> — стоп-слово, <strong>[]</strong> — порядок, <strong>""</strong> — количество слов.</div>
             </div>
             <div class="field-head-actions">
               <span class="count" id="phraseLabel">0 фраз</span>
@@ -341,7 +338,6 @@
         </div>
       </article>
       <section class="group-add-section" id="groupAddSection" aria-label="Добавление группы">
-        <div id="groupChips" hidden></div>
         <form class="group-add" id="groupAddForm">
           <input id="groupName" maxlength="30" placeholder="Название новой группы" aria-label="Название новой группы">
           <button type="submit" class="field-button">Добавить группу</button>
@@ -376,7 +372,6 @@
     const queriesInput = $("queries");
     const wordsInput = $("negativeWords");
     const phrasesInput = $("negativePhrases");
-    const output = $("remainingQueries");
     const clickableOutput = $("clickableResults");
     const formatter = new Intl.NumberFormat("ru-RU");
     const settingsButton = $("settingsButton");
@@ -399,12 +394,14 @@
     const showAllButton = $("showAllButton");
     const lengthChecks = Array.from(document.querySelectorAll("[data-query-length]"));
     const defaultPageTitle = document.title;
+    const MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024;
     let timer = null;
     let rawWords = wordsInput.value;    // Текст без автоматически добавленных дефисов.
     let rawPhrases = phrasesInput.value; // Текст без автоматически добавленных оболочек.
     let lastRemaining = [];
     let lastVisible = [];
-    let sourceCache = { value: null, lines: [] };
+    let queryRows = [];
+    let sourceCache = { value: null, rows: [] };
     let groups = [
       { id: "hot", name: "Горячие", short: "Г" },
       { id: "warm", name: "Тёплые", short: "Т" },
@@ -415,6 +412,8 @@
     const morphQueued = new Set();
     let morphLoading = false;
     let morphAvailable = true;
+    let morphRetryTimer = null;
+    let morphRetryDelay = 1000;
     let saveTimer = null;
     let databasePromise = null;
     let lemmaFrequencyPending = false;
@@ -441,6 +440,9 @@
         words: wordsInput.value,
         phrases: phrasesInput.value,
         rawWords, rawPhrases,
+        queryRows,
+        groups,
+        assignments,
         click: clickSetting.checked,
         clean: cleanSetting.checked,
         cleanPhrases: cleanPhrasesSetting.checked,
@@ -458,6 +460,7 @@
       return a.note === b.note && a.selectedLengths.join(",") === b.selectedLengths.join(",") &&
         a.queries === b.queries && a.words === b.words && a.phrases === b.phrases &&
         a.rawWords === b.rawWords && a.rawPhrases === b.rawPhrases &&
+        a.queryRows === b.queryRows && a.groups === b.groups && a.assignments === b.assignments &&
         a.click === b.click && a.clean === b.clean && a.cleanPhrases === b.cleanPhrases && a.dash === b.dash && a.quote === b.quote &&
         a.frequencyMode === b.frequencyMode && a.copyFrequency === b.copyFrequency && a.siteFonts === b.siteFonts;
     }
@@ -518,17 +521,16 @@
     function activeLengths() {
       return new Set(lengthChecks.filter(ch => ch.checked).map(ch => Number(ch.dataset.queryLength)));
     }
-    function visibleByLength(lines) {
+    function visibleByLength(rows) {
       const selected = activeLengths();
-      if (!selected.size) return lines;
-      return lines.filter(line => {
-        const count = getWords(queryPhrase(line)).length;
+      if (!selected.size) return rows;
+      return rows.filter(row => {
+        const count = getWords(queryPhrase(row.line)).length;
         return selected.has(count >= 6 ? 6 : count);
       });
     }
     function syncClickableView() {
       const enabled = clickSetting.checked;
-      output.hidden = true;
       clickableOutput.hidden = false;
       $("resultCopyHelp").textContent = enabled
         ? "Клик по слову добавляет его в минус-слова. По группам: стрелки — движение, Пробел или 1 — отметка."
@@ -550,6 +552,9 @@
       phrasesInput.value = state.phrases;
       rawWords = state.rawWords;
       rawPhrases = state.rawPhrases;
+      queryRows = state.queryRows || [];
+      groups = state.groups;
+      assignments = state.assignments;
       clickSetting.checked = state.click;
       cleanSetting.checked = state.clean;
       cleanPhrasesSetting.checked = state.cleanPhrases;
@@ -558,6 +563,8 @@
       frequencyMode.checked = Boolean(state.frequencyMode);
       copyFrequencySetting.checked = Boolean(state.copyFrequency);
       siteFontsSetting.checked = state.siteFonts !== false;
+      sourceCache = { value: queriesInput.value, rows: queryRows };
+      queueMorphology(queryRows.flatMap(row => getWords(queryPhrase(row.line))));
       syncFontMode();
       syncClickableView();
       recalculate();
@@ -592,8 +599,38 @@
       return { phrase: match[1].trim(), frequency: match[2] };
     }
     const queryPhrase = line => parseQueryLine(line).phrase;
-    function formatQueryLines(lines) {
-      return lines.map(line => copyFrequencySetting.checked ? line : queryPhrase(line)).join("\n");
+    function formatQueryLines(rows) {
+      return rows.map(row => {
+        const line = typeof row === "string" ? row : row.line;
+        return copyFrequencySetting.checked ? line : queryPhrase(line);
+      }).join("\n");
+    }
+    const createQueryRowId = () => `query-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+    function syncQueryRows(lines) {
+      const available = new Map();
+      for (const row of queryRows) {
+        const key = normalizedWord(queryPhrase(row.line));
+        if (!available.has(key)) available.set(key, []);
+        available.get(key).push(row);
+      }
+      const next = lines.map(line => {
+        const key = normalizedWord(queryPhrase(line));
+        const previous = available.get(key)?.shift();
+        return previous ? { id: previous.id, line } : { id: createQueryRowId(), line };
+      });
+      queryRows = next;
+      const activeIds = new Set(next.map(row => row.id));
+      const nextAssignments = Object.create(null);
+      for (const [id, groupId] of Object.entries(assignments)) {
+        if (activeIds.has(id)) nextAssignments[id] = groupId;
+      }
+      assignments = nextAssignments;
+      return next;
+    }
+    function refreshSourceCache() {
+      const lines = queriesInput.value.split(/\r?\n/u).map(line => line.trim()).filter(Boolean);
+      sourceCache = { value: queriesInput.value, rows: syncQueryRows(lines) };
+      queueMorphology(sourceCache.rows.flatMap(row => getWords(queryPhrase(row.line))));
     }
     const normalizedWord = word => word.normalize("NFC").toLocaleLowerCase("ru-RU");
     const morphKey = word => morphCache.get(normalizedWord(word))?.key || `word:${normalizedWord(word)}`;
@@ -601,6 +638,7 @@
     function updateMorphStatus() {
       const status = $("morphStatus");
       if (!morphAvailable) status.textContent = "Морфология недоступна — точное совпадение";
+      else if (morphRetryTimer !== null) status.textContent = "Морфология временно недоступна — повторный запрос";
       else if (morphLoading || morphQueued.size) status.textContent = `Морфология: обработка (${formatter.format(morphQueued.size)})`;
       else status.textContent = `Морфология: готова (${formatter.format(morphCache.size)})`;
     }
@@ -613,29 +651,39 @@
       updateMorphStatus();
       if (!morphLoading && morphQueued.size) void flushMorphology();
     }
+    function scheduleMorphologyRetry() {
+      if (morphRetryTimer !== null || !morphQueued.size) return;
+      morphRetryTimer = setTimeout(() => {
+        morphRetryTimer = null;
+        void flushMorphology();
+      }, morphRetryDelay);
+      morphRetryDelay = Math.min(morphRetryDelay * 2, 30000);
+      updateMorphStatus();
+    }
     async function flushMorphology() {
       if (morphLoading || !morphQueued.size || !morphAvailable) return;
       morphLoading = true;
       updateMorphStatus();
+      let currentBatch = [];
       try {
         while (morphQueued.size) {
-          const batch = Array.from(morphQueued).slice(0, 1000);
-          batch.forEach(word => morphQueued.delete(word));
+          currentBatch = Array.from(morphQueued).slice(0, 1000);
+          currentBatch.forEach(word => morphQueued.delete(word));
           const response = await fetch("/api/lemmatize", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ words: batch })
+            body: JSON.stringify({ words: currentBatch })
           });
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const data = await response.json();
           for (const [word, analysis] of Object.entries(data.analyses || {})) morphCache.set(word, analysis);
+          currentBatch = [];
+          morphRetryDelay = 1000;
           recalculate();
         }
       } catch (_) {
-        morphAvailable = false;
-        morphQueued.clear();
-        morphCache.clear();
-        recalculate();
+        currentBatch.forEach(word => morphQueued.add(word));
+        scheduleMorphologyRetry();
       } finally {
         morphLoading = false;
         updateMorphStatus();
@@ -673,7 +721,7 @@
     function projectState() {
       return {
         format: "key-sort-project",
-        version: 1,
+        version: 2,
         savedAt: new Date().toISOString(),
         note: noteInput.value,
         queries: queriesInput.value,
@@ -681,6 +729,7 @@
         phrases: phrasesInput.value,
         rawWords,
         rawPhrases,
+        queryRows,
         groups,
         assignments,
         selectedLengths: lengthChecks.filter(ch => ch.checked).map(ch => Number(ch.dataset.queryLength)),
@@ -697,28 +746,67 @@
         }
       };
     }
-    function validProjectState(state) {
-      return state && state.format === "key-sort-project" && state.version === 1 &&
-        typeof state.queries === "string" && typeof state.words === "string" && typeof state.phrases === "string" &&
-        Array.isArray(state.groups) && state.groups.length > 0;
+    function normalizeProjectState(source) {
+      if (!source || source.format !== "key-sort-project" || ![1, 2].includes(source.version)) throw new Error("Неподдерживаемый файл проекта");
+      if (typeof source.queries !== "string" || source.queries.length > 20_000_000 ||
+          typeof source.words !== "string" || source.words.length > 2_000_000 ||
+          typeof source.phrases !== "string" || source.phrases.length > 2_000_000) throw new Error("Некорректный размер данных проекта");
+      if (!Array.isArray(source.groups) || source.groups.length < 1 || source.groups.length > 100) throw new Error("Некорректный список групп");
+      const groupIds = new Set();
+      const normalizedGroups = source.groups.map(group => {
+        if (!group || typeof group.id !== "string" || !group.id || group.id.length > 100 ||
+            typeof group.name !== "string" || !group.name.trim() || group.name.trim().length > 30 || groupIds.has(group.id)) {
+          throw new Error("Некорректная или повторяющаяся группа");
+        }
+        groupIds.add(group.id);
+        const name = group.name.trim();
+        return { id: group.id, name, short: String(group.short || name).slice(0, 2).toLocaleUpperCase("ru-RU") };
+      });
+      const lines = source.queries.split(/\r?\n/u).map(line => line.trim()).filter(Boolean);
+      if (lines.length > 100_000) throw new Error("Слишком много поисковых запросов");
+      const storedRows = Array.isArray(source.queryRows) ? source.queryRows : [];
+      const rowIds = new Set();
+      const normalizedRows = lines.map((line, index) => {
+        const stored = storedRows[index];
+        const id = stored && stored.line === line && typeof stored.id === "string" && stored.id && stored.id.length <= 100 && !rowIds.has(stored.id)
+          ? stored.id
+          : createQueryRowId();
+        rowIds.add(id);
+        return { id, line };
+      });
+      const normalizedAssignments = Object.create(null);
+      const sourceAssignments = source.assignments && typeof source.assignments === "object" && !Array.isArray(source.assignments)
+        ? source.assignments
+        : {};
+      for (const row of normalizedRows) {
+        const selected = sourceAssignments[row.id] ?? sourceAssignments[row.line];
+        const groupId = Array.isArray(selected) ? selected.find(id => groupIds.has(String(id))) : selected;
+        if (groupId !== undefined && groupIds.has(String(groupId))) normalizedAssignments[row.id] = String(groupId);
+      }
+      const selectedLengths = Array.isArray(source.selectedLengths)
+        ? source.selectedLengths.map(Number).filter(value => Number.isInteger(value) && value >= 1 && value <= 6)
+        : [];
+      return {
+        ...source,
+        note: typeof source.note === "string" ? source.note.slice(0, 100) : "",
+        groups: normalizedGroups,
+        queryRows: normalizedRows,
+        assignments: normalizedAssignments,
+        selectedLengths,
+        settings: source.settings && typeof source.settings === "object" && !Array.isArray(source.settings) ? source.settings : {}
+      };
     }
-    function applyProjectState(state) {
-      if (!validProjectState(state)) throw new Error("Неподдерживаемый файл проекта");
+    function applyProjectState(source) {
+      const state = normalizeProjectState(source);
       noteInput.value = state.note || "";
       queriesInput.value = state.queries;
       wordsInput.value = state.words;
       phrasesInput.value = state.phrases;
       rawWords = typeof state.rawWords === "string" ? state.rawWords : state.words;
       rawPhrases = typeof state.rawPhrases === "string" ? state.rawPhrases : state.phrases;
-      groups = state.groups.map(group => ({ id: String(group.id), name: String(group.name), short: String(group.short || group.name).slice(0, 2).toLocaleUpperCase("ru-RU") }));
-      assignments = Object.create(null);
-      if (state.assignments && typeof state.assignments === "object") {
-        for (const [line, selected] of Object.entries(state.assignments)) {
-          const candidates = Array.isArray(selected) ? selected.map(String) : [String(selected)];
-          const groupId = candidates.find(id => groups.some(group => group.id === id));
-          if (groupId) assignments[line] = groupId;
-        }
-      }
+      groups = state.groups;
+      queryRows = state.queryRows;
+      assignments = state.assignments;
       const chosen = new Set(state.selectedLengths || []);
       lengthChecks.forEach(ch => { ch.checked = chosen.has(Number(ch.dataset.queryLength)); });
       const settings = state.settings || {};
@@ -731,10 +819,10 @@
       copyFrequencySetting.checked = Number(settings.copyFrequencyVersion) >= 2 && Boolean(settings.copyFrequency);
       siteFontsSetting.checked = settings.siteFonts !== false;
       syncFontMode();
-      sourceCache.value = null;
+      sourceCache = { value: queriesInput.value, rows: queryRows };
+      queueMorphology(queryRows.flatMap(row => getWords(queryPhrase(row.line))));
       lastRenderedClickable = null;
       syncPageTitle();
-      renderGroupChips();
       syncClickableView();
       recalculate();
     }
@@ -767,21 +855,15 @@
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     }
-    function countsOf(words) {
-      const map = new Map();
-      for (const word of words) map.set(word, (map.get(word) || 0) + 1);
-      return map;
-    }
-    function includesAll(queryCounts, ruleCounts) {
-      for (const [word, count] of ruleCounts) if ((queryCounts.get(word) || 0) < count) return false;
-      return true;
-    }
-
     function getNegativeWords(raw, warnings) {
       const result = new Set();
       for (const part of raw.split(/[\s,;]+/u)) {
         if (!part) continue;
-        const word = part.replace(/^[-!+]+/u, "");
+        if (/^[!+]/u.test(part.replace(/^-+/u, ""))) {
+          warnings.push(`Спецсимволы используйте в Минус-фразах: «${part}»`);
+          continue;
+        }
+        const word = part.replace(/^-+/u, "");
         if (!/^[\p{L}\p{N}]+(?:\.[0-9]+)?$/u.test(word)) {
           warnings.push(`Некорректное минус-слово «${part}»`);
           continue;
@@ -821,14 +903,15 @@
         const sourceRaw = piece.text.trim();
         if (!sourceRaw) continue;
         let source = sourceRaw.replace(/^\s*-\s*/u, "").trim();
-        let ordered = false;
+        let type = "all";
         // Автоматически добавленные кавычки — лишь оформление. Сочетания
         // [слова] и -"[слова]" должны фильтровать ОДИНАКОВО.
         if (source.startsWith('"') && source.endsWith('"') && source.length >= 2) {
+          type = "exact";
           source = source.slice(1, -1).trim();
         }
         if (source.startsWith("[") && source.endsWith("]") && source.length >= 2) {
-          ordered = true;
+          type = "ordered";
           source = source.slice(1, -1).trim();
         }
         if (/["\[\]]/u.test(source)) {
@@ -843,25 +926,58 @@
           warnings.push(`Некорректная запись минус-фразы: «${sourceRaw}»`);
           continue;
         }
-        const words = getWords(source);
-        if (!words.length) continue;
-        const type = ordered ? "ordered" : "exact";
-        const key = `${type}:${words.join("\u0000")}`;
-        if (!seen.has(key)) { seen.add(key); phrases.push({ type, words, counts: countsOf(words) }); }
+        const tokens = source.split(/\s+/u).filter(Boolean).map(token => {
+          const match = token.match(/^([!+]?)([\p{L}\p{N}]+(?:\.[0-9]+)?)$/u);
+          if (!match) return null;
+          return { word: normalizedWord(match[2]), fixed: match[1] === "!", forced: match[1] === "+" || match[1] === "!" };
+        });
+        if (!tokens.length || tokens.some(token => token === null)) {
+          warnings.push(`Некорректные операторы в минус-фразе: «${sourceRaw}»`);
+          continue;
+        }
+        if (tokens.length > 7) {
+          warnings.push(`В минус-фразе больше 7 слов: «${sourceRaw}»`);
+          continue;
+        }
+        const key = `${type}:${tokens.map(token => `${token.fixed ? "!" : token.forced ? "+" : ""}${token.word}`).join("\u0000")}`;
+        if (!seen.has(key)) { seen.add(key); phrases.push({ type, tokens, words: tokens.map(token => token.word) }); }
       }
       return phrases;
     }
+    const STOP_POS = new Set(["PREP", "CONJ", "PRCL", "NPRO"]);
+    function effectivePhraseTokens(phrase) {
+      if (phrase.type !== "all") return phrase.tokens;
+      return phrase.tokens.filter(token => token.forced || !STOP_POS.has(morphCache.get(token.word)?.pos));
+    }
+    function phraseTokenMatches(queryWord, token) {
+      return token.fixed ? normalizedWord(queryWord) === token.word : morphKey(queryWord) === morphKey(token.word);
+    }
     function phraseMatches(query, phrase) {
-      const queryKeys = query.words.map(morphKey);
-      const phraseKeys = phrase.words.map(morphKey);
-      const queryCounts = countsOf(queryKeys);
-      const phraseCounts = countsOf(phraseKeys);
-      if (phrase.type === "exact") return queryKeys.length === phraseKeys.length && includesAll(queryCounts, phraseCounts);
-      if (phrase.type === "all") return includesAll(queryCounts, phraseCounts);
-      const len = phrase.words.length;
+      const tokens = effectivePhraseTokens(phrase);
+      if (!tokens.length) return false;
+      if (phrase.type === "exact") {
+        if (query.words.length !== tokens.length) return false;
+        const used = new Set();
+        return tokens.every(token => {
+          const index = query.words.findIndex((word, i) => !used.has(i) && phraseTokenMatches(word, token));
+          if (index < 0) return false;
+          used.add(index);
+          return true;
+        });
+      }
+      if (phrase.type === "all") {
+        const used = new Set();
+        return tokens.every(token => {
+          const index = query.words.findIndex((word, i) => !used.has(i) && phraseTokenMatches(word, token));
+          if (index < 0) return false;
+          used.add(index);
+          return true;
+        });
+      }
+      const len = tokens.length;
       for (let i = 0; i <= query.words.length - len; i++) {
         let ok = true;
-        for (let j = 0; j < len; j++) if (queryKeys[i + j] !== phraseKeys[j]) { ok = false; break; }
+        for (let j = 0; j < len; j++) if (!phraseTokenMatches(query.words[i + j], tokens[j])) { ok = false; break; }
         if (ok) return true;
       }
       return false;
@@ -950,7 +1066,6 @@
           if (follow) el.scrollTop = el.scrollHeight;
           else el.scrollTop = Math.min(manualTop, Math.max(0, el.scrollHeight - el.clientHeight));
         },
-        manualPosition: () => ({follow, manualTop})
       };
     }
     const wordsScroll = stickyBottom(wordsInput);
@@ -1028,9 +1143,6 @@
       return parts.map((p, i) => unformatPhrasePiece(p.text, prev[i] ? prev[i].text : "", preserveManualWrapper) + p.sep).join("");
     }
     function mapWordCursor(oldText, newText, pos) {
-      const oldBefore = oldText.slice(0, pos);
-      const oldCount = (oldBefore.match(/(?:^|[\s,;]+)-(?=[\p{L}\p{N}])/gu) || []).length;
-      const newCount = (newText.match(/(?:^|[\s,;]+)-(?=[\p{L}\p{N}])/gu) || []).length;
       // Если сам текст не менялся — позицию оставляем.
       if (oldText === newText) return pos;
       const oldTokens = wordParts(oldText);
@@ -1138,6 +1250,8 @@
           updateMorphStatus();
         } catch (_) {
           analysis = null;
+          morphQueued.add(word);
+          scheduleMorphologyRetry();
         }
       }
       return analysis?.lemma || word;
@@ -1189,9 +1303,9 @@
     }
     function renderLemmaFrequency() {
       const counts = new Map();
-      for (const line of lastRemaining) {
+      for (const row of lastRemaining) {
         const inQuery = new Map();
-        for (const word of getWords(queryPhrase(line))) {
+        for (const word of getWords(queryPhrase(row.line))) {
           const normalized = normalizedWord(word);
           const analysis = morphCache.get(normalized);
           const key = analysis?.key || `word:${normalized}`;
@@ -1256,18 +1370,11 @@
     // Не пересоздаём кликабельные слова, если видимый список не изменился.
     // Иначе пересчёт после ухода из поля Минус-фраз может оборвать
     // первое же выделение мышью, пока пользователь протягивает курсор.
+    const VIRTUAL_ROW_HEIGHT = 24;
+    const VIRTUAL_OVERSCAN = 20;
     let lastRenderedClickable = null;
-    function renderGroupChips() {
-      const root = $("groupChips");
-      root.replaceChildren(...groups.map(group => {
-        const chip = document.createElement("span");
-        chip.className = "group-chip";
-        chip.textContent = `${group.short} — ${group.name}`;
-        return chip;
-      }));
-    }
-    function assignedGroup(line) {
-      const value = assignments[line];
+    function assignedGroup(row) {
+      const value = assignments[row.id];
       const candidates = Array.isArray(value) ? value : [value];
       return candidates.find(id => groups.some(group => group.id === id)) || null;
     }
@@ -1275,22 +1382,22 @@
       const index = groups.findIndex(group => group.id === groupId);
       const target = index + offset;
       if (index < 0 || target < 0 || target >= groups.length) return;
-      [groups[index], groups[target]] = [groups[target], groups[index]];
-      renderGroupChips();
-      lastRenderedClickable = null;
-      recalculate();
-      scheduleSave();
+      performHistoryAction(() => {
+        const next = groups.slice();
+        [next[index], next[target]] = [next[target], next[index]];
+        groups = next;
+        lastRenderedClickable = null;
+        recalculate();
+      });
     }
     function deleteGroup(groupId) {
       if (groups.length <= 1) return;
-      groups = groups.filter(group => group.id !== groupId);
-      for (const [line, assigned] of Object.entries(assignments)) {
-        if (assigned === groupId || (Array.isArray(assigned) && assigned.includes(groupId))) delete assignments[line];
-      }
-      renderGroupChips();
-      lastRenderedClickable = null;
-      recalculate();
-      scheduleSave();
+      performHistoryAction(() => {
+        groups = groups.filter(group => group.id !== groupId);
+        assignments = Object.fromEntries(Object.entries(assignments).filter(([, assigned]) => assigned !== groupId));
+        lastRenderedClickable = null;
+        recalculate();
+      });
     }
     function renameGroup(group, title, controls) {
       const input = document.createElement("input");
@@ -1335,12 +1442,15 @@
           input.focus();
           return;
         }
-        group.name = name;
-        group.short = (name.match(/[\p{L}\p{N}]/u)?.[0] || "+").toLocaleUpperCase("ru-RU");
-        renderGroupChips();
-        lastRenderedClickable = null;
-        recalculate();
-        scheduleSave();
+        performHistoryAction(() => {
+          groups = groups.map(item => item.id === group.id ? {
+            ...item,
+            name,
+            short: (name.match(/[\p{L}\p{N}]/u)?.[0] || "+").toLocaleUpperCase("ru-RU")
+          } : item);
+          lastRenderedClickable = null;
+          recalculate();
+        });
       };
       save.addEventListener("click", commit);
       cancel.addEventListener("click", () => recalculate());
@@ -1390,8 +1500,8 @@
           empty.textContent = "Список пуст";
           items.append(empty);
         } else {
-          for (const line of grouped) {
-            const parsed = parseQueryLine(line);
+          for (const row of grouped) {
+            const parsed = parseQueryLine(row.line);
             const item = document.createElement("div");
             item.className = "group-list-item";
             const text = document.createElement("div");
@@ -1409,12 +1519,15 @@
             back.className = "group-list-return";
             back.textContent = "×";
             back.title = "Вернуть в нераспределённые";
-            back.setAttribute("aria-label", `Вернуть «${line}» в нераспределённые`);
+            back.setAttribute("aria-label", `Вернуть «${row.line}» в нераспределённые`);
             back.addEventListener("click", () => {
-              delete assignments[line];
-              lastRenderedClickable = null;
-              recalculate();
-              scheduleSave();
+              performHistoryAction(() => {
+                const next = { ...assignments };
+                delete next[row.id];
+                assignments = next;
+                lastRenderedClickable = null;
+                recalculate();
+              });
             });
             item.append(back);
             items.append(item);
@@ -1425,22 +1538,35 @@
       }), $("groupAddSection"));
     }
     function toggleGroup(row, column) {
-      const line = lastVisible[row];
+      const queryRow = lastVisible[row];
       const group = groups[column];
-      if (line === undefined || !group) return;
-      assignments[line] = group.id;
-      lastRenderedClickable = null;
-      recalculate();
-      scheduleSave();
+      if (!queryRow || !group) return;
+      performHistoryAction(() => {
+        assignments = { ...assignments, [queryRow.id]: group.id };
+        lastRenderedClickable = null;
+        recalculate();
+      });
       requestAnimationFrame(() => {
         const nextRow = Math.min(row, Math.max(0, lastVisible.length - 1));
-        clickableOutput.querySelector(`[data-group-row="${nextRow}"][data-group-column="${column}"]`)?.focus();
+        focusGroupCell(nextRow, column);
       });
     }
-    function renderClickable(lines) {
-      if (lastRenderedClickable && lines.length === lastRenderedClickable.length &&
-          lines.every((line, i) => line === lastRenderedClickable[i])) return;
+    function focusGroupCell(row, column) {
+      let cell = clickableOutput.querySelector(`[data-group-row="${row}"][data-group-column="${column}"]`);
+      if (!cell) {
+        clickableOutput.scrollTop = Math.max(0, 30 + row * VIRTUAL_ROW_HEIGHT - clickableOutput.clientHeight / 2);
+        renderClickable(lastVisible, true);
+        cell = clickableOutput.querySelector(`[data-group-row="${row}"][data-group-column="${column}"]`);
+      }
+      cell?.focus();
+    }
+    function renderClickable(lines, force = false) {
       const scrollTop = clickableOutput.scrollTop;
+      const start = Math.max(0, Math.floor(Math.max(0, scrollTop - 30) / VIRTUAL_ROW_HEIGHT) - VIRTUAL_OVERSCAN);
+      const visibleCount = Math.ceil((clickableOutput.clientHeight || 480) / VIRTUAL_ROW_HEIGHT) + VIRTUAL_OVERSCAN * 2;
+      const end = Math.min(lines.length, start + visibleCount);
+      if (!force && lastRenderedClickable && lastRenderedClickable.start === start && lastRenderedClickable.end === end &&
+          lines.length === lastRenderedClickable.lines.length && lines.every((row, i) => row === lastRenderedClickable.lines[i])) return;
       const grid = document.createElement("div");
       grid.className = "query-grid";
       if (frequencyMode.checked) grid.classList.add("with-frequency");
@@ -1465,10 +1591,16 @@
         header.append(frequencyHead);
       }
       grid.append(header);
+      if (start > 0) {
+        const topSpacer = document.createElement("div");
+        topSpacer.className = "query-virtual-spacer";
+        topSpacer.style.height = `${start * VIRTUAL_ROW_HEIGHT}px`;
+        grid.append(topSpacer);
+      }
       const matcher = /[\p{L}\p{N}]+(?:\.[0-9]+)?/gu;
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const parsed = parseQueryLine(line);
+      for (let i = start; i < end; i++) {
+        const sourceRow = lines[i];
+        const parsed = parseQueryLine(sourceRow.line);
         const row = document.createElement("div");
         row.className = "query-row";
         groups.forEach((group, column) => {
@@ -1508,16 +1640,21 @@
         }
         grid.append(row);
       }
+      if (end < lines.length) {
+        const bottomSpacer = document.createElement("div");
+        bottomSpacer.className = "query-virtual-spacer";
+        bottomSpacer.style.height = `${(lines.length - end) * VIRTUAL_ROW_HEIGHT}px`;
+        grid.append(bottomSpacer);
+      }
       clickableOutput.replaceChildren(grid);
-      lastRenderedClickable = lines.slice();
+      lastRenderedClickable = { lines: lines.slice(), start, end };
       clickableOutput.scrollTop = scrollTop;
     }
     function recalculate() {
       if (queriesInput.value !== sourceCache.value) {
-        sourceCache = { value: queriesInput.value, lines: queriesInput.value.split(/\r?\n/u).map(s => s.trim()).filter(Boolean) };
-        queueMorphology(sourceCache.lines.flatMap(line => getWords(queryPhrase(line))));
+        refreshSourceCache();
       }
-      const lines = sourceCache.lines;
+      const rows = sourceCache.rows;
       const warnings = [];
       const negativeWords = getNegativeWords(wordsInput.value, warnings);
       const draftPending = document.activeElement === phrasesInput && !/[,\n]\s*$/u.test(rawPhrases);
@@ -1525,12 +1662,12 @@
       queueMorphology([...negativeWords, ...negativePhrases.flatMap(phrase => phrase.words)]);
       const negativeWordKeys = new Set(Array.from(negativeWords, morphKey));
       const remaining = [];
-      for (const line of lines) {
-        const words = getWords(queryPhrase(line));
-        const query = { words, counts: countsOf(words) };
+      for (const row of rows) {
+        const words = getWords(queryPhrase(row.line));
+        const query = { words };
         let excluded = words.some(w => negativeWordKeys.has(morphKey(w)));
         if (!excluded) excluded = negativePhrases.some(p => phraseMatches(query, p));
-        if (!excluded) remaining.push(line);
+        if (!excluded) remaining.push(row);
       }
       const unassigned = remaining.filter(line => !assignedGroup(line));
       lastRemaining = unassigned;
@@ -1539,11 +1676,11 @@
       // Опции меняют только отображение; базовая минусация остаётся прежней.
       renderClickable(lastVisible);
       renderGroupLists(remaining);
-      $("sourceLabel").textContent = `${formatter.format(lines.length)} строк`;
+      $("sourceLabel").textContent = `${formatter.format(rows.length)} строк`;
       $("wordLabel").textContent = `${formatter.format(negativeWords.size)} слов`;
       $("phraseLabel").textContent = `${formatter.format(negativePhrases.length)} фраз`;
-      $("totalCount").textContent = formatter.format(lines.length);
-      $("excludedCount").textContent = formatter.format(lines.length - remaining.length);
+      $("totalCount").textContent = formatter.format(rows.length);
+      $("excludedCount").textContent = formatter.format(rows.length - remaining.length);
       $("remainingCount").textContent = formatter.format(unassigned.length);
       $("shownCount").textContent = formatter.format(lastVisible.length);
       $("shownMetric").hidden = activeLengths().size === 0;
@@ -1583,6 +1720,7 @@
       }
     });
     queriesInput.addEventListener("input", e => {
+      refreshSourceCache();
       scheduleRecalculate();
       storeTextEdit("queries", e);
     });
@@ -1716,8 +1854,16 @@
       e.preventDefault();
       const nextRow = Math.max(0, Math.min(lastVisible.length - 1, row + direction[0]));
       const nextColumn = Math.max(0, Math.min(groups.length - 1, column + direction[1]));
-      clickableOutput.querySelector(`[data-group-row="${nextRow}"][data-group-column="${nextColumn}"]`)?.focus();
+      focusGroupCell(nextRow, nextColumn);
     });
+    let virtualScrollFrame = null;
+    clickableOutput.addEventListener("scroll", () => {
+      if (virtualScrollFrame !== null) return;
+      virtualScrollFrame = requestAnimationFrame(() => {
+        virtualScrollFrame = null;
+        renderClickable(lastVisible, true);
+      });
+    }, { passive: true });
     clickableOutput.addEventListener("click", e => {
       const cell = e.target.closest(".group-cell");
       if (!cell) return;
@@ -1831,16 +1977,16 @@
       const input = $("groupName");
       const name = input.value.trim();
       if (!name || groups.some(group => group.name.toLocaleLowerCase("ru-RU") === name.toLocaleLowerCase("ru-RU"))) return;
-      groups.push({
-        id: `group-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-        name,
-        short: (name.match(/[\p{L}\p{N}]/u)?.[0] || "+").toLocaleUpperCase("ru-RU")
+      performHistoryAction(() => {
+        groups = [...groups, {
+          id: `group-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+          name,
+          short: (name.match(/[\p{L}\p{N}]/u)?.[0] || "+").toLocaleUpperCase("ru-RU")
+        }];
+        input.value = "";
+        lastRenderedClickable = null;
+        recalculate();
       });
-      input.value = "";
-      renderGroupChips();
-      lastRenderedClickable = null;
-      recalculate();
-      scheduleSave();
     });
     $("exportProject").addEventListener("click", exportProject);
     $("importProject").addEventListener("click", () => $("importProjectFile").click());
@@ -1849,6 +1995,7 @@
       e.target.value = "";
       if (!file) return;
       try {
+        if (file.size > MAX_IMPORT_FILE_BYTES) throw new Error("Файл проекта превышает 25 МБ");
         const state = JSON.parse(await file.text());
         applyProjectState(state);
         history = [snapshot()];
@@ -1909,9 +2056,13 @@
       }
     });
     async function initialize() {
+      let restored = false;
       try {
         const saved = await databaseGet("current");
-        if (saved && validProjectState(saved)) applyProjectState(saved);
+        if (saved) {
+          applyProjectState(saved);
+          restored = true;
+        }
         else {
           if (cleanSetting.checked) {
             rawWords = cleanWordText(rawWords, true);
@@ -1921,13 +2072,11 @@
             rawPhrases = cleanPhraseText(rawPhrases);
             phrasesInput.value = quoteSetting.checked ? formatPhrases(rawPhrases) : rawPhrases;
           }
-          renderGroupChips();
           syncClickableView();
           recalculate();
         }
-        $("saveStatus").textContent = saved ? "Прошлая сессия восстановлена" : "Автосохранение включено";
+        $("saveStatus").textContent = restored ? "Прошлая сессия восстановлена" : "Автосохранение включено";
       } catch (_) {
-        renderGroupChips();
         syncClickableView();
         recalculate();
         $("saveStatus").textContent = "Автосохранение недоступно";

@@ -44,7 +44,10 @@ server {
         proxy_read_timeout 5s;
     }
 
-    location / {
-        try_files $uri $uri/ =404;
+    location = / { try_files /index.html =404; }
+    location = /index.html { try_files /index.html =404; }
+    location ~ ^/assets/(?:vcg-logo\.png|fonts/(?:SourceCodePro|RobotoMono)\.ttf)$ {
+        try_files $uri =404;
     }
+    location / { return 404; }
 }

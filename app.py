@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from functools import lru_cache
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -13,6 +14,7 @@ HOST = "127.0.0.1"
 PORT = 8815
 MAX_BODY_BYTES = 256 * 1024
 MAX_WORDS = 1000
+MAX_WORKERS = 8
 WORD_RE = re.compile(r"^[\wёЁ-]+$", re.UNICODE)
 MORPH = pymorphy3.MorphAnalyzer()
 POS_FAMILIES = {
@@ -81,5 +83,31 @@ class Handler(BaseHTTPRequestHandler):
         return
 
 
+class BoundedThreadingHTTPServer(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def __init__(self, server_address: tuple[str, int], handler_class: type[BaseHTTPRequestHandler]) -> None:
+        super().__init__(server_address, handler_class)
+        self._workers = threading.BoundedSemaphore(MAX_WORKERS)
+
+    def process_request(self, request: object, client_address: object) -> None:
+        if not self._workers.acquire(blocking=False):
+            try:
+                request.sendall(
+                    b"HTTP/1.1 503 Service Unavailable\r\n"
+                    b"Content-Length: 0\r\nConnection: close\r\n\r\n"
+                )
+            finally:
+                self.shutdown_request(request)
+            return
+        super().process_request(request, client_address)
+
+    def process_request_thread(self, request: object, client_address: object) -> None:
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._workers.release()
+
+
 if __name__ == "__main__":
-    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    BoundedThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
