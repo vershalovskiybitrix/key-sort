@@ -189,9 +189,10 @@
     .lemma-frequency-empty { padding: 14px; color: #555; font-size: 13px; }
     .group-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 55px; padding: 8px 10px; border-bottom: 1px solid #aaa; font-weight: 700; }
     .group-list-items { max-height: 530px; overflow: auto; background: #fff; }
-    .group-list-item { display: flex; align-items: start; gap: 10px; padding: 5px 10px; border-bottom: 1px solid #ddd; font-size: 14px; line-height: 1.1; }
+    .group-list-item { display: flex; align-items: center; gap: 10px; height: 26px; padding: 0 10px; border-bottom: 1px solid #ddd; font-size: 14px; line-height: 1.1; overflow: hidden; }
     .group-list-item:last-child { border-bottom: 0; }
-    .group-list-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+    .group-list-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .group-list-spacer { width: 1px; }
     .group-list-frequency { flex: 0 0 92px; padding-left: 10px; border-left: 1px solid #ddd; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
     .group-list-return { border: 0; background: transparent; padding: 0 3px; color: #555; font: 400 18px/1 var(--font-body); cursor: pointer; }
     .group-list-return:hover { color: #000; }
@@ -288,8 +289,8 @@
               <button type="button" class="field-button" id="resultOptionsButton" aria-haspopup="true" aria-expanded="false" aria-controls="resultOptionsMenu">Фильтр</button>
               <div class="result-options-menu" id="resultOptionsMenu" hidden>
                 <div class="result-options-title">Показывать поисковые запросы, состоящие из:</div>
-                <label class="result-option-row"><input type="checkbox" data-query-length="1"><span>1 слова</span></label>
-                <label class="result-option-row"><input type="checkbox" data-query-length="2"><span>2 слов</span></label>
+                <label class="result-option-row"><input type="checkbox" data-query-length="1"><span>1 слово</span></label>
+                <label class="result-option-row"><input type="checkbox" data-query-length="2"><span>2 слова</span></label>
                 <label class="result-option-row"><input type="checkbox" data-query-length="3"><span>3 слов</span></label>
                 <label class="result-option-row"><input type="checkbox" data-query-length="4"><span>4 слов</span></label>
                 <label class="result-option-row"><input type="checkbox" data-query-length="5"><span>5 слов</span></label>
@@ -370,7 +371,7 @@
         <div class="panel-head">
           <div>
             <h2 class="panel-title" id="queryTitle">Поисковые запросы</h2>
-            <div class="help">Скопируй столбец из отчёта или Excel и вставь сюда. Один запрос — одна строка.</div>
+            <div class="help">Скопируй столбец из отчёта или Excel и вставь сюда. Один запрос — одна строка. Частотность отделяется запятой, точкой с запятой или табуляцией.</div>
             <label class="query-mode"><input type="checkbox" id="frequencyMode"><span>С частотностями</span></label>
           </div>
           <div class="field-head-actions">
@@ -434,6 +435,10 @@
     const defaultPageTitle = document.title;
     const MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024;
     const SESSION_RETENTION_MONTHS = 4;
+    const MORPH_BATCH_SIZE = 1000;
+    const MORPH_REQUEST_INTERVAL_MS = 350;
+    const MORPH_FAILURE_LIMIT = 3;
+    const MORPH_RECOVERY_INTERVAL_MS = 60000;
     let timer = null;
     let rawWords = wordsInput.value;    // Текст без автоматически добавленных дефисов.
     let negativeWordKeyOverrides = Object.create(null); // Внутренние ключи «лемма + часть речи» без вывода в поле и копирование.
@@ -455,6 +460,8 @@
     const morphQueued = new Set();
     let morphLoading = false;
     let morphAvailable = true;
+    let morphFailureCount = 0;
+    let lastMorphRequestAt = 0;
     let morphRetryTimer = null;
     let morphRetryDelay = 1000;
     let saveTimer = null;
@@ -644,7 +651,7 @@
     const getWords = text => (text.normalize("NFC").toLocaleLowerCase("ru-RU").match(/[\p{L}\p{N}]+(?:\.[0-9]+)?/gu) || []);
     function parseQueryLine(line) {
       if (!frequencyMode.checked) return { phrase: line, frequency: "" };
-      const match = line.match(/^(.*?)(?:\s*[,;]\s*|\t+|\s+)(\d+)\s*$/u);
+      const match = line.match(/^(.*?)(?:\s*[,;]\s*|\t+)(\d+)\s*$/u);
       if (!match || !match[1].trim()) return { phrase: line, frequency: "" };
       return { phrase: match[1].trim(), frequency: match[2] };
     }
@@ -722,7 +729,9 @@
     function groupShortName(name) {
       return (name.match(/[\p{L}\p{N}]/gu) || ["+"]).slice(0, 2).join("").toLocaleUpperCase("ru-RU");
     }
-    const morphKey = word => morphCache.get(normalizedWord(word))?.key || `word:${normalizedWord(word)}`;
+    const morphKey = word => morphAvailable
+      ? (morphCache.get(normalizedWord(word))?.key || `word:${normalizedWord(word)}`)
+      : `word:${normalizedWord(word)}`;
     function addNegativeWordKeyOverride(word, key) {
       const normalized = normalizedWord(word);
       const current = negativeWordKeyOverrides[normalized] || [];
@@ -789,16 +798,21 @@
         const analysis = morphCache.get(word);
         const keys = Array.isArray(negativeWordKeyOverrides[word]) && negativeWordKeyOverrides[word].length
           ? negativeWordKeyOverrides[word]
-          : [analysis?.key || `word:${word}`];
+          : (analysis ? [analysis.key] : []);
+        const comparisonKeys = keys.length ? keys : [`word:${word}`];
         const lemma = analysis?.lemma || word;
         const normalizedLemma = normalizedWord(lemma);
-        if (!nextOverrides[normalizedLemma]) nextOverrides[normalizedLemma] = [];
-        for (const key of keys) {
+        let hasNewKey = false;
+        for (const key of comparisonKeys) {
           if (seen.has(key)) continue;
           seen.add(key);
-          nextOverrides[normalizedLemma].push(key);
+          hasNewKey = true;
         }
-        if (!nextOverrides[normalizedLemma].length) continue;
+        if (!hasNewKey) continue;
+        if (keys.length) {
+          if (!nextOverrides[normalizedLemma]) nextOverrides[normalizedLemma] = [];
+          for (const key of keys) if (!nextOverrides[normalizedLemma].includes(key)) nextOverrides[normalizedLemma].push(key);
+        }
         if (!displayed.has(normalizedLemma)) {
           displayed.add(normalizedLemma);
           normalized.push(`${match[1] ? "-" : ""}${lemma}`);
@@ -834,6 +848,10 @@
       queueMorphology(getNegativeWords(source, []));
       if (!morphLoading && !morphQueued.size) queueMicrotask(processPendingInputNormalization);
     }
+    function normalizeLoadedInputs() {
+      requestQueryDeduplication();
+      requestNegativeWordNormalization();
+    }
 
     function queueMorphology(words) {
       if (!morphAvailable) return;
@@ -844,12 +862,34 @@
       if (!morphLoading && morphQueued.size) void flushMorphology();
     }
     function scheduleMorphologyRetry() {
-      if (morphRetryTimer !== null || !morphQueued.size) return;
+      if (morphRetryTimer !== null || (morphAvailable && !morphQueued.size)) return;
+      const delay = morphAvailable ? morphRetryDelay : MORPH_RECOVERY_INTERVAL_MS;
       morphRetryTimer = setTimeout(() => {
         morphRetryTimer = null;
-        void flushMorphology();
-      }, morphRetryDelay);
-      morphRetryDelay = Math.min(morphRetryDelay * 2, 30000);
+        if (morphAvailable) void flushMorphology();
+        else void recoverMorphology();
+      }, delay);
+      if (morphAvailable) morphRetryDelay = Math.min(morphRetryDelay * 2, 30000);
+    }
+    async function waitForMorphologyRateSlot() {
+      const wait = Math.max(0, MORPH_REQUEST_INTERVAL_MS - (performance.now() - lastMorphRequestAt));
+      if (wait) await new Promise(resolve => setTimeout(resolve, wait));
+      lastMorphRequestAt = performance.now();
+    }
+    async function recoverMorphology() {
+      try {
+        const response = await fetch("/api/health", { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        morphAvailable = true;
+        morphFailureCount = 0;
+        morphRetryDelay = 1000;
+        queueMorphology(queryRows.flatMap(row => getWords(queryPhrase(row.line))));
+        requestQueryDeduplication();
+        requestNegativeWordNormalization();
+        recalculate();
+      } catch (_) {
+        scheduleMorphologyRetry();
+      }
     }
     async function flushMorphology() {
       if (morphLoading || !morphQueued.size || !morphAvailable) return;
@@ -857,8 +897,9 @@
       let currentBatch = [];
       try {
         while (morphQueued.size) {
-          currentBatch = Array.from(morphQueued).slice(0, 1000);
+          currentBatch = Array.from(morphQueued).slice(0, MORPH_BATCH_SIZE);
           currentBatch.forEach(word => morphQueued.delete(word));
+          await waitForMorphologyRateSlot();
           const response = await fetch("/api/lemmatize", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -868,11 +909,20 @@
           const data = await response.json();
           for (const [word, analysis] of Object.entries(data.analyses || {})) morphCache.set(word, analysis);
           currentBatch = [];
+          morphFailureCount = 0;
           morphRetryDelay = 1000;
           recalculate();
         }
       } catch (_) {
-        currentBatch.forEach(word => morphQueued.add(word));
+        morphFailureCount++;
+        if (morphFailureCount >= MORPH_FAILURE_LIMIT) {
+          morphAvailable = false;
+          morphQueued.clear();
+          currentBatch = [];
+          recalculate();
+        } else {
+          currentBatch.forEach(word => morphQueued.add(word));
+        }
         scheduleMorphologyRetry();
       } finally {
         morphLoading = false;
@@ -1180,14 +1230,34 @@
     function phraseTokenMatches(queryWord, token) {
       return token.fixed ? normalizedWord(queryWord) === token.word : morphKey(queryWord) === morphKey(token.word);
     }
+    function uniqueExactPhraseTokens(tokens) {
+      const seen = new Set();
+      return tokens.filter(token => {
+        const key = token.fixed ? `fixed:${token.word}` : `morph:${morphKey(token.word)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+    function uniqueExactQueryWords(words) {
+      const seen = new Set();
+      return words.filter(word => {
+        const key = normalizedWord(word);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
     function phraseMatches(query, phrase) {
-      const tokens = effectivePhraseTokens(phrase);
+      let tokens = effectivePhraseTokens(phrase);
       if (!tokens.length) return false;
       if (phrase.type === "exact") {
-        if (query.words.length !== tokens.length) return false;
+        tokens = uniqueExactPhraseTokens(tokens);
+        const queryWords = uniqueExactQueryWords(query.words);
+        if (queryWords.length !== tokens.length) return false;
         const used = new Set();
         return tokens.every(token => {
-          const index = query.words.findIndex((word, i) => !used.has(i) && phraseTokenMatches(word, token));
+          const index = queryWords.findIndex((word, i) => !used.has(i) && phraseTokenMatches(word, token));
           if (index < 0) return false;
           used.add(index);
           return true;
@@ -1209,6 +1279,29 @@
         if (ok) return true;
       }
       return false;
+    }
+    function phraseIndexKey(token) {
+      return token.fixed ? `fixed:${token.word}` : `morph:${morphKey(token.word)}`;
+    }
+    function buildNegativePhraseIndex(phrases) {
+      const index = new Map();
+      for (const phrase of phrases) {
+        const first = effectivePhraseTokens(phrase)[0];
+        if (!first) continue;
+        const key = phraseIndexKey(first);
+        if (!index.has(key)) index.set(key, []);
+        index.get(key).push(phrase);
+      }
+      return index;
+    }
+    function negativePhraseCandidates(words, index) {
+      const candidates = new Set();
+      for (const word of words) {
+        for (const key of [`fixed:${normalizedWord(word)}`, `morph:${morphKey(word)}`]) {
+          for (const phrase of index.get(key) || []) candidates.add(phrase);
+        }
+      }
+      return candidates;
     }
 
     // Нормализуем только при включённом соответствующем переключателе.
@@ -1485,14 +1578,14 @@
       }
       return {
         word: analysis?.lemma || word,
-        key: analysis?.key || `word:${word}`
+        key: analysis?.key || null
       };
     }
     async function addNegativeWord(source) {
       const analysis = await analysisForNegativeWord(source);
       return performHistoryAction(() => {
         const normalized = normalizedWord(analysis.word);
-        const keyAdded = addNegativeWordKeyOverride(normalized, analysis.key);
+        const keyAdded = analysis.key ? addNegativeWordKeyOverride(normalized, analysis.key) : false;
         if (!getNegativeWords(rawWords, []).has(normalized)) {
           rawWords += (rawWords && !/[\s,;]$/u.test(rawWords) ? " " : "") + analysis.word;
           if (cleanSetting.checked) rawWords = cleanWordText(rawWords);
@@ -1701,12 +1794,97 @@
       input.focus();
       input.select();
     }
+    const GROUP_ROW_HEIGHT = 26;
+    const GROUP_VIRTUAL_OVERSCAN = 12;
+    function createGroupListItem(row) {
+      const parsed = parseQueryLine(row.line);
+      const item = document.createElement("div");
+      item.className = "group-list-item";
+      const text = document.createElement("div");
+      text.className = "group-list-text";
+      text.textContent = parsed.phrase;
+      text.title = parsed.phrase;
+      item.append(text);
+      if (frequencyMode.checked) {
+        const frequency = document.createElement("div");
+        frequency.className = "group-list-frequency";
+        frequency.textContent = parsed.frequency;
+        item.append(frequency);
+      }
+      const back = document.createElement("button");
+      back.type = "button";
+      back.className = "group-list-return";
+      back.textContent = "×";
+      back.title = "Вернуть в нераспределённые";
+      back.setAttribute("aria-label", `Вернуть «${row.line}» в нераспределённые`);
+      back.addEventListener("click", () => {
+        performHistoryAction(() => {
+          const next = { ...assignments };
+          delete next[row.id];
+          assignments = next;
+          lastRenderedClickable = null;
+          recalculate();
+        });
+      });
+      item.append(back);
+      return item;
+    }
+    function renderVirtualGroupItems(items, grouped) {
+      if (!grouped.length) {
+        const empty = document.createElement("div");
+        empty.className = "group-list-empty";
+        empty.textContent = "Список пуст";
+        items.replaceChildren(empty);
+        return;
+      }
+      let frame = null;
+      let renderedStart = -1;
+      let renderedEnd = -1;
+      const render = () => {
+        const scrollTop = items.scrollTop;
+        const start = Math.max(0, Math.floor(scrollTop / GROUP_ROW_HEIGHT) - GROUP_VIRTUAL_OVERSCAN);
+        const count = Math.ceil((items.clientHeight || 530) / GROUP_ROW_HEIGHT) + GROUP_VIRTUAL_OVERSCAN * 2;
+        const end = Math.min(grouped.length, start + count);
+        if (start === renderedStart && end === renderedEnd) return;
+        renderedStart = start;
+        renderedEnd = end;
+        const children = [];
+        if (start > 0) {
+          const spacer = document.createElement("div");
+          spacer.className = "group-list-spacer";
+          spacer.style.height = `${start * GROUP_ROW_HEIGHT}px`;
+          children.push(spacer);
+        }
+        for (let index = start; index < end; index++) children.push(createGroupListItem(grouped[index]));
+        if (end < grouped.length) {
+          const spacer = document.createElement("div");
+          spacer.className = "group-list-spacer";
+          spacer.style.height = `${(grouped.length - end) * GROUP_ROW_HEIGHT}px`;
+          children.push(spacer);
+        }
+        items.replaceChildren(...children);
+        items.scrollTop = scrollTop;
+      };
+      items.addEventListener("scroll", () => {
+        if (frame !== null) return;
+        frame = requestAnimationFrame(() => {
+          frame = null;
+          render();
+        });
+      }, { passive: true });
+      render();
+    }
     function renderGroupLists(lines) {
       const root = $("groupLists");
+      const groupedById = new Map(groups.map(group => [group.id, []]));
+      for (const line of lines) {
+        const groupId = assignedGroup(line);
+        if (groupId && groupedById.has(groupId)) groupedById.get(groupId).push(line);
+      }
       root.replaceChildren($("lemmaFrequencyBlock"), ...groups.map(group => {
         const block = document.createElement("article");
         block.className = "group-list";
-        const grouped = lines.filter(line => assignedGroup(line) === group.id);
+        const grouped = groupedById.get(group.id);
         const head = document.createElement("div");
         head.className = "group-list-head";
         const title = document.createElement("span");
@@ -1733,45 +1911,7 @@
         head.append(title, count, controls);
         const items = document.createElement("div");
         items.className = "group-list-items";
-        if (!grouped.length) {
-          const empty = document.createElement("div");
-          empty.className = "group-list-empty";
-          empty.textContent = "Список пуст";
-          items.append(empty);
-        } else {
-          for (const row of grouped) {
-            const parsed = parseQueryLine(row.line);
-            const item = document.createElement("div");
-            item.className = "group-list-item";
-            const text = document.createElement("div");
-            text.className = "group-list-text";
-            text.textContent = parsed.phrase;
-            item.append(text);
-            if (frequencyMode.checked) {
-              const frequency = document.createElement("div");
-              frequency.className = "group-list-frequency";
-              frequency.textContent = parsed.frequency;
-              item.append(frequency);
-            }
-            const back = document.createElement("button");
-            back.type = "button";
-            back.className = "group-list-return";
-            back.textContent = "×";
-            back.title = "Вернуть в нераспределённые";
-            back.setAttribute("aria-label", `Вернуть «${row.line}» в нераспределённые`);
-            back.addEventListener("click", () => {
-              performHistoryAction(() => {
-                const next = { ...assignments };
-                delete next[row.id];
-                assignments = next;
-                lastRenderedClickable = null;
-                recalculate();
-              });
-            });
-            item.append(back);
-            items.append(item);
-          }
-        }
+        renderVirtualGroupItems(items, grouped);
         block.append(head, items);
         return block;
       }), $("groupAddSection"));
@@ -1922,14 +2062,17 @@
       }
       const rows = sourceCache.rows;
       const warnings = [];
+      const morphologyWarning = !morphAvailable ? "Морфология временно недоступна — используется точное сравнение слов." : "";
       const negativeWords = getNegativeWords(wordsInput.value, warnings);
       const draftPending = document.activeElement === phrasesInput && !/[,\n]\s*$/u.test(rawPhrases);
       const negativePhrases = getNegativePhrases(rawPhrases, warnings, draftPending);
       queueMorphology([...negativeWords, ...negativePhrases.flatMap(phrase => phrase.words)]);
+      const negativePhraseIndex = buildNegativePhraseIndex(negativePhrases);
       const negativeWordKeys = new Set();
       for (const word of negativeWords) {
         const internalKeys = negativeWordKeyOverrides[word];
-        if (Array.isArray(internalKeys) && internalKeys.length) internalKeys.forEach(key => negativeWordKeys.add(key));
+        if (!morphAvailable) negativeWordKeys.add(`word:${word}`);
+        else if (Array.isArray(internalKeys) && internalKeys.length) internalKeys.forEach(key => negativeWordKeys.add(key));
         else negativeWordKeys.add(morphKey(word));
       }
       const remaining = [];
@@ -1937,7 +2080,7 @@
         const words = getWords(queryPhrase(row.line));
         const query = { words };
         let excluded = words.some(w => negativeWordKeys.has(morphKey(w)));
-        if (!excluded) excluded = negativePhrases.some(p => phraseMatches(query, p));
+        if (!excluded) excluded = Array.from(negativePhraseCandidates(words, negativePhraseIndex)).some(p => phraseMatches(query, p));
         if (!excluded) remaining.push(row);
       }
       const unassigned = remaining.filter(line => !assignedGroup(line));
@@ -1956,17 +2099,20 @@
       $("shownCount").textContent = formatter.format(lastVisible.length);
       $("shownMetric").hidden = activeLengths().size === 0;
       const warningBox = $("warning");
-      if (warnings.length) {
-        warningBox.textContent = `Не применены некоторые записи (${warnings.length}): ${warnings.slice(0, 3).join("; ")}${warnings.length > 3 ? "; …" : ""}.`;
+      if (warnings.length || morphologyWarning) {
+        const inputWarning = warnings.length
+          ? `Не применены некоторые записи (${warnings.length}): ${warnings.slice(0, 3).join("; ")}${warnings.length > 3 ? "; …" : ""}.`
+          : "";
+        warningBox.textContent = [morphologyWarning, inputWarning].filter(Boolean).join(" ");
         warningBox.classList.add("visible");
       } else {
         warningBox.textContent = "";
         warningBox.classList.remove("visible");
       }
     }
-    function scheduleRecalculate() {
+    function scheduleRecalculate(delay = 85) {
       if (timer !== null) clearTimeout(timer);
-      timer = setTimeout(() => { timer = null; recalculate(); }, 85);
+      timer = setTimeout(() => { timer = null; recalculate(); }, delay);
     }
     noteInput.addEventListener("input", e => {
       syncPageTitle();
@@ -1991,8 +2137,7 @@
       }
     });
     queriesInput.addEventListener("input", e => {
-      refreshSourceCache();
-      scheduleRecalculate();
+      scheduleRecalculate(250);
       storeTextEdit("queries", e);
       if (e.inputType === "insertFromPaste" || e.inputType === "insertFromDrop") requestQueryDeduplication();
     });
@@ -2328,6 +2473,7 @@
         history = [snapshot()];
         historyIndex = 0;
         syncHistoryButtons();
+        normalizeLoadedInputs();
         await saveNow();
       } catch (error) {
         $("saveStatus").textContent = error instanceof Error ? error.message : "Не удалось импортировать проект";
@@ -2415,6 +2561,7 @@
       history = [snapshot()];
       historyIndex = 0;
       syncHistoryButtons();
+      if (restored) normalizeLoadedInputs();
     }
     void initialize();
   })();

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import threading
 from functools import lru_cache
@@ -10,8 +11,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pymorphy3
 
 
-HOST = "127.0.0.1"
-PORT = 8815
+HOST = os.environ.get("KEY_SORT_HOST", "127.0.0.1")
+PORT = int(os.environ.get("KEY_SORT_PORT", "8815"))
 MAX_BODY_BYTES = 256 * 1024
 MAX_WORDS = 1000
 MAX_WORKERS = 8
