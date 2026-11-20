@@ -77,4 +77,30 @@ const lengthFilter = createFilter(
 );
 assert.deepEqual(lengthFilter(rows).map(row => row.id), ["3"]);
 
+const queryFilterControl = { value: "" };
+let recalculations = 0;
+const createQueryFilterSetter = new Function(
+  "queryTextFilter",
+  "performHistoryAction",
+  "recalculate",
+  `let lastRenderedClickable = "cached";
+   ${extractFunction("setQueryTextFilter")}
+   return {
+     setQueryTextFilter,
+     cached: () => lastRenderedClickable
+   };`
+);
+const queryFilterSetter = createQueryFilterSetter(
+  queryFilterControl,
+  change => { change(); return true; },
+  () => { recalculations++; }
+);
+queryFilterSetter.setQueryTextFilter("психолог");
+assert.equal(queryFilterControl.value, "психолог");
+assert.equal(queryFilterSetter.cached(), null);
+assert.equal(recalculations, 1);
+queryFilterSetter.setQueryTextFilter("");
+assert.equal(queryFilterControl.value, "");
+assert.equal(recalculations, 2);
+
 console.log("query filter tests passed");

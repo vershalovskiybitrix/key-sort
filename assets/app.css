@@ -123,8 +123,9 @@
       .metric strong { font-size: 19px; }
     }
 
-    .header-actions { margin-left: auto; align-self: end; position: relative; flex: 0 0 auto; z-index: 5; }
+    .header-actions { margin-left: auto; align-self: end; position: relative; flex: 0 0 auto; z-index: 5; display: flex; align-items: center; gap: 8px; }
     .settings-button { height: 30px; display: inline-flex; gap: 7px; align-items: center; border-radius: 0; border: 1px solid #888; background: transparent; padding: 0 10px; font: 400 13px/1.35 var(--font-body); color: var(--text); cursor: pointer; }
+    a.settings-button { text-decoration: none; }
     .settings-button:hover, .settings-button[aria-expanded="true"] { border-color: #000; background: #000; color: #fff; }
     .settings-button:focus-visible { outline: 2px solid #000; outline-offset: 2px; }
     .settings-menu { width: min(370px, calc(100vw - 30px)); position: absolute; top: calc(100% + 9px); right: 0; z-index: 20; background: #e9e9e8; border: 1px solid #888; box-shadow: none; border-radius: 0; padding: 10px; }
@@ -153,6 +154,11 @@
     .query-sort-button { height: 100%; border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; cursor: pointer; text-align: left; }
     .query-sort-button.query-frequency { text-align: right; }
     .query-sort-button:focus-visible { outline: 2px solid #000; outline-offset: -2px; }
+    .query-header-text { display: flex; align-items: center; gap: 5px; padding-block: 0; }
+    .query-header-sort { min-width: 0; padding: 0; flex: 0 1 auto; }
+    .query-filter-clear { width: 20px; height: 20px; flex: 0 0 20px; display: grid; place-items: center; border: 0; background: transparent; color: #000; padding: 0; font: 700 18px/1 Arial, sans-serif; cursor: pointer; }
+    .query-filter-clear:hover { background: #000; color: #fff; }
+    .query-filter-clear:focus-visible { outline: 2px solid #000; outline-offset: 0; }
     .group-head, .group-cell { width: 24px; display: grid; place-items: center; border-right: 1px solid #ddd; }
     .group-head { font-size: 11px; }
     .group-cell { appearance: none; margin: 0; padding: 0; border: 0; border-right: 1px solid #ddd; border-radius: 0; background: #fff; cursor: pointer; color: #111; font: 700 16px/1 var(--font-body); }
@@ -173,6 +179,19 @@
     .save-status { width: 120px; align-self: center; color: var(--muted); font-size: 11px; line-height: 1.2; text-align: right; }
     .site-footer { width: min(1200px, calc(100% - 40px)); margin: 0 auto; padding: 8px 0 28px; color: #555; font-size: 12px; text-align: right; }
     .site-footer a { color: inherit; }
+    .documentation-page main { width: min(900px, calc(100% - 40px)); padding-top: 32px; }
+    .documentation-head { display: flex; align-items: start; justify-content: space-between; gap: 24px; padding-bottom: 16px; border-bottom: 1px solid #888; }
+    .documentation-head h1 { margin: 0; }
+    .documentation-head .field-button { text-decoration: none; flex: 0 0 auto; }
+    .documentation-content { padding: 4px 0 40px; font-size: 14px; line-height: 1.6; }
+    .documentation-content section { padding: 18px 0; border-bottom: 1px solid #aaa; }
+    .documentation-content section:last-child { border-bottom: 0; }
+    .documentation-content h2 { margin: 0 0 10px; font-size: 19px; }
+    .documentation-content h3 { margin: 16px 0 6px; font-size: 15px; }
+    .documentation-content p { margin: 7px 0; }
+    .documentation-content ul, .documentation-content ol { margin: 7px 0; padding-left: 24px; }
+    .documentation-content li + li { margin-top: 5px; }
+    .documentation-content code, .documentation-content kbd { font: 400 13px/1.4 var(--font-body); border: 1px solid #aaa; padding: 1px 4px; background: transparent; }
     .group-lists { margin: 16px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
     .group-list { background: transparent; border: 1px solid #aaa; min-width: 0; }
     .lemma-frequency-block { grid-column: 1; grid-row: span 2; align-self: start; background: transparent; border: 1px solid #aaa; min-width: 0; }
@@ -214,6 +233,7 @@
       .app-header > .header-note { grid-column: auto; min-width: 0; }
       .project-actions { flex-wrap: wrap; }
       .header-actions { margin-left: 0; align-self: start; }
+      .documentation-head { flex-direction: column; }
       .clickable-results { height: 320px; flex: initial; }
       .group-lists { grid-template-columns: minmax(0, 1fr); }
       .lemma-frequency-block { grid-column: auto; grid-row: auto; }

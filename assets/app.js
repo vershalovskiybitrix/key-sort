@@ -235,9 +235,18 @@
       const enabled = clickSetting.checked;
       clickableOutput.hidden = false;
       $("resultCopyHelp").textContent = enabled
-        ? "Клик по слову добавляет его в минус-слова. По группам: стрелки — движение, Пробел или 1 — отметка."
-        : "По группам: стрелки — движение, Пробел или 1 — отметка. Для полного списка есть кнопка «Скопировать».";
+        ? "Клик по слову добавляет его в минус-слова, Ctrl+клик — в фильтр. По группам: стрелки — движение, Пробел или 1 — отметка."
+        : "Ctrl+клик по слову добавляет его в фильтр. По группам: стрелки — движение, Пробел или 1 — отметка.";
       renderClickable(lastVisible);
+    }
+
+    function setQueryTextFilter(value) {
+      const next = String(value || "").slice(0, 200);
+      return performHistoryAction(() => {
+        queryTextFilter.value = next;
+        lastRenderedClickable = null;
+        recalculate();
+      });
     }
     function syncFontMode() {
       document.documentElement.classList.toggle("legacy-fonts", !siteFontsSetting.checked);
@@ -275,6 +284,7 @@
       sourceCache = { value: queriesInput.value, rows: queryRows };
       queueMorphology(queryRows.flatMap(row => getWords(queryPhrase(row.line))));
       syncFontMode();
+      lastRenderedClickable = null;
       syncClickableView();
       recalculate();
       wordsScroll.edited();
@@ -1641,12 +1651,25 @@
         cell.title = group.name;
         header.append(cell);
       }
-      const phraseHead = document.createElement("button");
-      phraseHead.type = "button";
-      phraseHead.className = "query-text query-sort-button";
-      phraseHead.textContent = `Поисковый запрос${querySortMode === "asc" ? " ▲" : querySortMode === "desc" ? " ▼" : ""}`;
-      phraseHead.title = "Сортировать по поисковому запросу";
-      phraseHead.addEventListener("click", cycleQuerySort);
+      const phraseHead = document.createElement("div");
+      phraseHead.className = "query-text query-header-text";
+      const phraseSort = document.createElement("button");
+      phraseSort.type = "button";
+      phraseSort.className = "query-sort-button query-header-sort";
+      phraseSort.textContent = `Поисковый запрос${querySortMode === "asc" ? " ▲" : querySortMode === "desc" ? " ▼" : ""}`;
+      phraseSort.title = "Сортировать по поисковому запросу";
+      phraseSort.addEventListener("click", cycleQuerySort);
+      phraseHead.append(phraseSort);
+      if (activeQueryTextFilter()) {
+        const clearFilter = document.createElement("button");
+        clearFilter.type = "button";
+        clearFilter.className = "query-filter-clear";
+        clearFilter.textContent = "×";
+        clearFilter.title = "Сбросить фильтр по поисковому запросу";
+        clearFilter.setAttribute("aria-label", "Сбросить фильтр по поисковому запросу");
+        clearFilter.addEventListener("click", () => setQueryTextFilter(""));
+        phraseHead.append(clearFilter);
+      }
       header.append(phraseHead);
       const searchHead = document.createElement("div");
       searchHead.className = "query-search-actions query-search-actions-head";
@@ -1697,7 +1720,7 @@
           span.className = "clickable-word";
           span.textContent = match[0];
           span.dataset.word = match[0];
-          span.title = `Добавить нормальную форму слова «${match[0]}» в минус-слова`;
+          span.title = `Клик — добавить «${match[0]}» в минус-слова; Ctrl+клик — отфильтровать запросы по этому слову`;
           text.append(span);
           last = match.index + match[0].length;
         }
@@ -1805,6 +1828,7 @@
       storeHistory("action", "length");
     }));
     queryTextFilter.addEventListener("input", e => {
+      lastRenderedClickable = null;
       scheduleRecalculate(120);
       storeTextEdit("query-filter", e);
     });
@@ -1822,6 +1846,7 @@
       queryTextFilter.value = "";
       frequencyFilterOperator.value = "gt";
       frequencyFilterValue.value = "";
+      lastRenderedClickable = null;
       recalculate();
       storeHistory("action", "filter");
     });
@@ -2019,7 +2044,13 @@
       const dragged = resultPointerGesture?.dragged || false;
       resultPointerGesture = null;
       const span = e.target.closest(".clickable-word");
-      if (!clickSetting.checked || !span || dragged) return;
+      if (!span || dragged) return;
+      if (e.ctrlKey) {
+        e.preventDefault();
+        setQueryTextFilter(span.dataset.word);
+        return;
+      }
+      if (!clickSetting.checked) return;
       addNegativeWord(span.dataset.word);
     });
 
