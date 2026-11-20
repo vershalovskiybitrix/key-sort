@@ -133,6 +133,9 @@
     .setting-row { display: flex; align-items: flex-start; gap: 11px; padding: 10px; border-radius: 0; cursor: pointer; line-height: 1.3; font-size: 13px; }
     .setting-row:hover { background: #eee; }
     .setting-row input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; flex-shrink: 0; cursor: pointer; }
+    .settings-project { margin-top: 6px; padding-top: 6px; border-top: 1px solid #aaa; }
+    .settings-project-actions { display: flex; gap: 6px; padding: 0 10px 6px; }
+    .settings-project-actions .field-button { flex: 1 1 0; min-width: 0; padding-inline: 6px; }
     .query-mode { display: inline-flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 13px; cursor: pointer; }
     .query-mode input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
     .clickable-results { flex: 1 1 auto; width: 100%; height: 480px; min-height: 300px; overflow: auto; background: #fff; border: 1px solid #aaa; border-radius: 0; padding: 0; font: 14px/1.1 var(--font-body); user-select: text; }
@@ -242,12 +245,9 @@
       <div class="header-note">
         <input type="text" id="campaignNote" aria-label="Название проекта" placeholder="Название" maxlength="100" autocomplete="off" spellcheck="false" title="Название проекта и вкладки браузера">
       </div>
-      <div class="project-actions" aria-label="Файл проекта">
+      <div class="project-actions" aria-label="История проекта">
         <button type="button" class="field-button history-button" id="undoButton" title="Отменить последнее действие (Ctrl+Z)" aria-label="Отменить последнее действие" disabled>↶&#xFE0E;</button>
         <button type="button" class="field-button history-button" id="redoButton" title="Повторить отменённое действие (Ctrl+Y)" aria-label="Повторить отменённое действие" disabled>↷&#xFE0E;</button>
-        <button type="button" class="field-button" id="exportProject">Экспорт JSON</button>
-        <button type="button" class="field-button" id="importProject">Импорт JSON</button>
-        <input type="file" class="file-input" id="importProjectFile" accept="application/json,.json">
         <span class="save-status" id="saveStatus" aria-live="polite">Подготовка…</span>
       </div>
       <div class="header-actions" id="settingsRoot">
@@ -262,6 +262,15 @@
           <label class="setting-row"><input type="checkbox" id="settingCopyFrequency"><span>Копировать с частотностями</span></label>
           <label class="setting-row"><input type="checkbox" id="settingAutoLemmaFrequency"><span>Пересчитывать частотность слов автоматически</span></label>
           <label class="setting-row"><input type="checkbox" id="settingSiteFonts" checked><span>Шрифты vershalovskiy.com (выключено — Arial)</span></label>
+          <div class="settings-project">
+            <div class="settings-heading">Проект</div>
+            <div class="settings-project-actions">
+              <button type="button" class="field-button" id="exportProject">Экспорт JSON</button>
+              <button type="button" class="field-button" id="importProject">Импорт JSON</button>
+              <button type="button" class="field-button" id="resetProject">Сбросить всё</button>
+            </div>
+            <input type="file" class="file-input" id="importProjectFile" accept="application/json,.json">
+          </div>
         </div>
       </div>
     </section>
@@ -429,11 +438,12 @@
     let lastVisible = [];
     let queryRows = [];
     let sourceCache = { value: null, rows: [] };
-    let groups = [
+    const createDefaultGroups = () => [
       { id: "hot", name: "Горячие", short: "ГО" },
       { id: "warm", name: "Тёплые", short: "ТЁ" },
       { id: "cold", name: "Холодные", short: "ХО" }
     ];
+    let groups = createDefaultGroups();
     let assignments = Object.create(null);
     const morphCache = new Map();
     const morphQueued = new Set();
@@ -2143,8 +2153,53 @@
         recalculate();
       });
     });
+    async function resetProject() {
+      if (!window.confirm("Сбросить все поля, группы, распределение и настройки проекта?")) return;
+      performHistoryAction(() => {
+        noteInput.value = "";
+        queriesInput.value = "";
+        wordsInput.value = "";
+        phrasesInput.value = "";
+        rawWords = "";
+        rawPhrases = "";
+        queryRows = [];
+        sourceCache = { value: null, rows: [] };
+        groups = createDefaultGroups();
+        assignments = Object.create(null);
+        lastRemaining = [];
+        lastVisible = [];
+        lastRenderedClickable = null;
+        pendingQueryDeduplication = null;
+        pendingNegativeWordNormalization = null;
+        lemmaFrequencyPending = false;
+        lemmaFrequencyHasResult = false;
+        lengthChecks.forEach(check => { check.checked = false; });
+        clickSetting.checked = true;
+        cleanSetting.checked = true;
+        cleanPhrasesSetting.checked = true;
+        dashSetting.checked = false;
+        quoteSetting.checked = false;
+        frequencyMode.checked = false;
+        copyFrequencySetting.checked = false;
+        autoLemmaFrequencySetting.checked = false;
+        siteFontsSetting.checked = true;
+        $("groupName").value = "";
+        $("importProjectFile").value = "";
+        $("lemmaFrequencyItems").replaceChildren(lemmaFrequencyMessage("Нажмите «Обновить»"));
+        syncPageTitle();
+        syncFontMode();
+        syncClickableView();
+        recalculate();
+        wordsScroll.edited();
+        phrasesScroll.edited();
+      });
+      settingsMenu.hidden = true;
+      settingsButton.setAttribute("aria-expanded", "false");
+      await saveNow();
+    }
     $("exportProject").addEventListener("click", exportProject);
     $("importProject").addEventListener("click", () => $("importProjectFile").click());
+    $("resetProject").addEventListener("click", resetProject);
     $("importProjectFile").addEventListener("change", async e => {
       const file = e.target.files?.[0];
       e.target.value = "";
