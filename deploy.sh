@@ -16,6 +16,15 @@ service_group="${KEY_SORT_GROUP:-www-data}"
 
 cd "$project_dir"
 
+chmod 0644 \
+  app.py \
+  index.html \
+  assets/app.css \
+  assets/app.js \
+  assets/vcg-logo.png \
+  assets/fonts/RobotoMono.ttf \
+  assets/fonts/SourceCodePro.ttf
+
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "$temp_dir"' EXIT
 

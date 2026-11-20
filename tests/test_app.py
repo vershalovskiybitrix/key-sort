@@ -5,7 +5,7 @@ import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app import analyze_word
+from app import MAX_WORDS, analyze_word, normalize_requested_words
 
 
 class MorphologyTests(unittest.TestCase):
@@ -36,6 +36,18 @@ class MorphologyTests(unittest.TestCase):
 
     def test_invalid_token_stays_exact(self) -> None:
         self.assertEqual(analyze_word("слово!")["key"], "word:слово!")
+
+    def test_request_words_are_normalized(self) -> None:
+        self.assertEqual(normalize_requested_words(["Слово ", "слово"]), {"слово"})
+
+    def test_request_rejects_non_string_values(self) -> None:
+        for invalid in ([123], [True], [{"word": "слово"}], [None]):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                normalize_requested_words(invalid)
+
+    def test_request_rejects_too_many_words(self) -> None:
+        with self.assertRaises(ValueError):
+            normalize_requested_words(["слово"] * (MAX_WORDS + 1))
 
 
 if __name__ == "__main__":

@@ -30,6 +30,14 @@ POS_FAMILIES = {
 }
 
 
+def normalize_requested_words(words: object) -> set[str]:
+    if not isinstance(words, list) or len(words) > MAX_WORDS:
+        raise ValueError
+    if any(not isinstance(word, str) for word in words):
+        raise ValueError
+    return {word.casefold().strip() for word in words}
+
+
 @lru_cache(maxsize=100_000)
 def analyze_word(source: str) -> dict[str, str | bool]:
     word = source.casefold().strip()
@@ -72,9 +80,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
             words = payload.get("words")
-            if not isinstance(words, list) or len(words) > MAX_WORDS:
-                raise ValueError
-            unique = {str(word).casefold().strip() for word in words}
+            unique = normalize_requested_words(words)
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError, AttributeError):
             self.send_error(HTTPStatus.BAD_REQUEST)
             return
