@@ -1720,7 +1720,6 @@
           span.className = "clickable-word";
           span.textContent = match[0];
           span.dataset.word = match[0];
-          span.title = `Клик — добавить «${match[0]}» в минус-слова; Ctrl+клик — отфильтровать запросы по этому слову`;
           text.append(span);
           last = match.index + match[0].length;
         }
