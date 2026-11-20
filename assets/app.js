@@ -270,6 +270,7 @@
       copyFrequencySetting.checked = Boolean(state.copyFrequency);
       autoLemmaFrequencySetting.checked = Boolean(state.autoLemmaFrequency);
       siteFontsSetting.checked = state.siteFonts !== false;
+      wordsInput.value = dashSetting.checked ? formatWords(wordTextToLines(rawWords)) : wordTextToLines(rawWords);
       syncFrequencyFilterVisibility();
       sourceCache = { value: queriesInput.value, rows: queryRows };
       queueMorphology(queryRows.flatMap(row => getWords(queryPhrase(row.line))));
@@ -469,7 +470,7 @@
           normalized.push(`${match[1] ? "-" : ""}${lemma}`);
         }
       }
-      const next = normalized.join(" ");
+      const next = normalized.join("\n");
       const overridesChanged = JSON.stringify(negativeWordKeyOverrides) !== JSON.stringify(nextOverrides);
       if (next === source && !overridesChanged) return;
       rawWords = next;
@@ -757,6 +758,7 @@
       copyFrequencySetting.checked = Number(settings.copyFrequencyVersion) >= 2 && Boolean(settings.copyFrequency);
       autoLemmaFrequencySetting.checked = Boolean(settings.autoLemmaFrequency);
       siteFontsSetting.checked = settings.siteFonts !== false;
+      wordsInput.value = dashSetting.checked ? formatWords(wordTextToLines(rawWords)) : wordTextToLines(rawWords);
       queryTextFilter.value = typeof settings.queryTextFilter === "string" ? settings.queryTextFilter.slice(0, 200) : "";
       frequencyFilterOperator.value = settings.frequencyFilterOperator === "lt" ? "lt" : "gt";
       frequencyFilterValue.value = typeof settings.frequencyFilterValue === "string" || typeof settings.frequencyFilterValue === "number"
@@ -973,6 +975,12 @@
       return candidates;
     }
 
+    function wordTextToLines(s, trimEnd = false) {
+      let v = s.replace(/[\s,;]+/gu, "\n").replace(/^\n/u, "");
+      if (trimEnd) v = v.trimEnd();
+      return v;
+    }
+
     // Нормализуем только при включённом соответствующем переключателе.
     function cleanWordText(s, trimEnd = false) {
       const chars = Array.from(s);
@@ -985,9 +993,7 @@
         }
         res.push(" ");
       }
-      let v = res.join("").replace(/\s+/gu, " ").replace(/^ /u, "");
-      if (trimEnd) v = v.trimEnd();
-      return v;
+      return wordTextToLines(res.join(""), trimEnd);
     }
 
     // Очистка минус-фраз не должна удалять их разделители или операторы.
@@ -1190,8 +1196,9 @@
       const displayed = wordsInput.value;
       rawWords = dashSetting.checked ? unformatWords(displayed, rawWords) : displayed;
       if (cleanSetting.checked) rawWords = cleanWordText(rawWords);
+      else rawWords = wordTextToLines(rawWords);
       pruneNegativeWordKeyOverrides();
-      if (dashSetting.checked || cleanSetting.checked) {
+      if (dashSetting.checked || cleanSetting.checked || displayed !== rawWords) {
         const desired = dashSetting.checked ? formatWords(rawWords) : rawWords;
         replaceKeepingCursor(wordsInput, desired, (o, n, p) => dashSetting.checked ? mapWordCursor(o, n, p) : Math.min(p, n.length));
       }
@@ -1221,7 +1228,8 @@
       storeTextEdit("phrases", e);
     }
     function setWordsFromCanonical() {
-      wordsInput.value = dashSetting.checked ? formatWords(rawWords) : rawWords;
+      const lines = wordTextToLines(rawWords);
+      wordsInput.value = dashSetting.checked ? formatWords(lines) : lines;
       wordsScroll.edited();
       scheduleRecalculate();
     }
@@ -1256,7 +1264,7 @@
         const normalized = normalizedWord(analysis.word);
         const keyAdded = analysis.key ? addNegativeWordKeyOverride(normalized, analysis.key) : false;
         if (!getNegativeWords(rawWords, []).has(normalized)) {
-          rawWords += (rawWords && !/[\s,;]$/u.test(rawWords) ? " " : "") + analysis.word;
+          rawWords += (rawWords && !/[\s,;]$/u.test(rawWords) ? "\n" : "") + analysis.word;
           if (cleanSetting.checked) rawWords = cleanWordText(rawWords);
           setWordsFromCanonical();
         } else if (!keyAdded) {
@@ -2238,6 +2246,9 @@
         else {
           if (cleanSetting.checked) {
             rawWords = cleanWordText(rawWords, true);
+            wordsInput.value = dashSetting.checked ? formatWords(rawWords) : rawWords;
+          } else {
+            rawWords = wordTextToLines(rawWords, true);
             wordsInput.value = dashSetting.checked ? formatWords(rawWords) : rawWords;
           }
           if (cleanPhrasesSetting.checked) {
