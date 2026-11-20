@@ -20,21 +20,31 @@ MORPH = pymorphy3.MorphAnalyzer()
 POS_FAMILIES = {
     "INFN": "VERB",
     "VERB": "VERB",
+    "GRND": "VERB",
+    "PRTF": "VERB",
+    "PRTS": "VERB",
     "ADJF": "ADJ",
     "ADJS": "ADJ",
+    "COMP": "ADJ",
 }
 
 
 @lru_cache(maxsize=100_000)
-def analyze_word(source: str) -> dict[str, str]:
+def analyze_word(source: str) -> dict[str, str | bool]:
     word = source.casefold().strip()
     if not word or len(word) > 80 or not WORD_RE.fullmatch(word):
-        return {"lemma": word, "pos": "UNKNOWN", "key": f"word:{word}"}
-    parsed = MORPH.parse(word)[0]
+        return {"lemma": word, "pos": "UNKNOWN", "key": f"word:{word}", "ambiguous": False}
+    parses = MORPH.parse(word)
+    pos_families = {
+        POS_FAMILIES.get(parsed.tag.POS or "UNKNOWN", parsed.tag.POS or "UNKNOWN")
+        for parsed in parses
+    }
+    if len(pos_families) > 1:
+        return {"lemma": word, "pos": "AMBIGUOUS", "key": f"word:{word}", "ambiguous": True}
+    parsed = parses[0]
     lemma = parsed.normal_form
-    pos = parsed.tag.POS or "UNKNOWN"
-    pos = POS_FAMILIES.get(pos, pos)
-    return {"lemma": lemma, "pos": pos, "key": f"lemma:{lemma}:{pos}"}
+    pos = POS_FAMILIES.get(parsed.tag.POS or "UNKNOWN", parsed.tag.POS or "UNKNOWN")
+    return {"lemma": lemma, "pos": pos, "key": f"lemma:{lemma}:{pos}", "ambiguous": False}
 
 
 class Handler(BaseHTTPRequestHandler):

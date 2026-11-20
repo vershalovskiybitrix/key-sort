@@ -436,6 +436,7 @@
     const SESSION_RETENTION_MONTHS = 4;
     let timer = null;
     let rawWords = wordsInput.value;    // Текст без автоматически добавленных дефисов.
+    let negativeWordKeyOverrides = Object.create(null); // Внутренние ключи «лемма + часть речи» без вывода в поле и копирование.
     let rawPhrases = phrasesInput.value; // Текст без автоматически добавленных оболочек.
     let lastRemaining = [];
     let lastVisible = [];
@@ -484,7 +485,7 @@
         queries: queriesInput.value,
         words: wordsInput.value,
         phrases: phrasesInput.value,
-        rawWords, rawPhrases,
+        rawWords, rawPhrases, negativeWordKeyOverrides,
         queryRows,
         groups,
         assignments,
@@ -505,7 +506,7 @@
     function equalSnapshot(a, b) {
       return a.note === b.note && a.selectedLengths.join(",") === b.selectedLengths.join(",") &&
         a.queries === b.queries && a.words === b.words && a.phrases === b.phrases &&
-        a.rawWords === b.rawWords && a.rawPhrases === b.rawPhrases &&
+        a.rawWords === b.rawWords && a.rawPhrases === b.rawPhrases && a.negativeWordKeyOverrides === b.negativeWordKeyOverrides &&
         a.queryRows === b.queryRows && a.groups === b.groups && a.assignments === b.assignments &&
         a.click === b.click && a.clean === b.clean && a.cleanPhrases === b.cleanPhrases && a.dash === b.dash && a.quote === b.quote &&
         a.frequencyMode === b.frequencyMode && a.copyFrequency === b.copyFrequency &&
@@ -598,6 +599,7 @@
       wordsInput.value = state.words;
       phrasesInput.value = state.phrases;
       rawWords = state.rawWords;
+      negativeWordKeyOverrides = state.negativeWordKeyOverrides || Object.create(null);
       rawPhrases = state.rawPhrases;
       queryRows = state.queryRows || [];
       groups = state.groups;
@@ -721,6 +723,23 @@
       return (name.match(/[\p{L}\p{N}]/gu) || ["+"]).slice(0, 2).join("").toLocaleUpperCase("ru-RU");
     }
     const morphKey = word => morphCache.get(normalizedWord(word))?.key || `word:${normalizedWord(word)}`;
+    function addNegativeWordKeyOverride(word, key) {
+      const normalized = normalizedWord(word);
+      const current = negativeWordKeyOverrides[normalized] || [];
+      if (current.includes(key)) return false;
+      negativeWordKeyOverrides = { ...negativeWordKeyOverrides, [normalized]: [...current, key] };
+      return true;
+    }
+    function pruneNegativeWordKeyOverrides() {
+      const active = getNegativeWords(rawWords, []);
+      const next = Object.create(null);
+      for (const [word, keys] of Object.entries(negativeWordKeyOverrides)) {
+        if (active.has(word) && Array.isArray(keys) && keys.length) next[word] = keys.slice();
+      }
+      const before = Object.keys(negativeWordKeyOverrides);
+      const after = Object.keys(next);
+      if (before.length !== after.length || before.some(word => !next[word])) negativeWordKeyOverrides = next;
+    }
 
     function queryDuplicateKey(line) {
       const keys = getWords(queryPhrase(line)).map(morphKey).sort();
@@ -756,7 +775,9 @@
     function normalizeNegativeWordList(source, displayedSource) {
       if (rawWords !== source || wordsInput.value !== displayedSource) return;
       const seen = new Set();
+      const displayed = new Set();
       const normalized = [];
+      const nextOverrides = Object.create(null);
       for (const part of source.split(/[\s,;]+/u)) {
         if (!part) continue;
         const match = part.match(/^(-*)([\p{L}\p{N}]+(?:\.[0-9]+)?)$/u);
@@ -766,14 +787,28 @@
         }
         const word = normalizedWord(match[2]);
         const analysis = morphCache.get(word);
-        const key = analysis?.key || `word:${word}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        normalized.push(`${match[1] ? "-" : ""}${analysis?.lemma || word}`);
+        const keys = Array.isArray(negativeWordKeyOverrides[word]) && negativeWordKeyOverrides[word].length
+          ? negativeWordKeyOverrides[word]
+          : [analysis?.key || `word:${word}`];
+        const lemma = analysis?.lemma || word;
+        const normalizedLemma = normalizedWord(lemma);
+        if (!nextOverrides[normalizedLemma]) nextOverrides[normalizedLemma] = [];
+        for (const key of keys) {
+          if (seen.has(key)) continue;
+          seen.add(key);
+          nextOverrides[normalizedLemma].push(key);
+        }
+        if (!nextOverrides[normalizedLemma].length) continue;
+        if (!displayed.has(normalizedLemma)) {
+          displayed.add(normalizedLemma);
+          normalized.push(`${match[1] ? "-" : ""}${lemma}`);
+        }
       }
       const next = normalized.join(" ");
-      if (next === source) return;
+      const overridesChanged = JSON.stringify(negativeWordKeyOverrides) !== JSON.stringify(nextOverrides);
+      if (next === source && !overridesChanged) return;
       rawWords = next;
+      negativeWordKeyOverrides = nextOverrides;
       setWordsFromCanonical();
       mergeAutomaticNormalizationIntoHistory("words", displayedSource);
     }
@@ -896,13 +931,14 @@
     function projectState() {
       return {
         format: "key-sort-project",
-        version: 2,
+        version: 3,
         savedAt: new Date().toISOString(),
         note: noteInput.value,
         queries: queriesInput.value,
         words: wordsInput.value,
         phrases: phrasesInput.value,
         rawWords,
+        negativeWordKeyOverrides,
         rawPhrases,
         queryRows,
         groups,
@@ -923,7 +959,7 @@
       };
     }
     function normalizeProjectState(source) {
-      if (!source || source.format !== "key-sort-project" || ![1, 2].includes(source.version)) throw new Error("Неподдерживаемый файл проекта");
+      if (!source || source.format !== "key-sort-project" || ![1, 2, 3].includes(source.version)) throw new Error("Неподдерживаемый файл проекта");
       if (typeof source.queries !== "string" || source.queries.length > 20_000_000 ||
           typeof source.words !== "string" || source.words.length > 2_000_000 ||
           typeof source.phrases !== "string" || source.phrases.length > 2_000_000) throw new Error("Некорректный размер данных проекта");
@@ -962,12 +998,24 @@
       const selectedLengths = Array.isArray(source.selectedLengths)
         ? source.selectedLengths.map(Number).filter(value => Number.isInteger(value) && value >= 1 && value <= 6)
         : [];
+      const normalizedWordOverrides = Object.create(null);
+      const activeNegativeWords = getNegativeWords(typeof source.rawWords === "string" ? source.rawWords : source.words, []);
+      const sourceWordOverrides = source.negativeWordKeyOverrides && typeof source.negativeWordKeyOverrides === "object" && !Array.isArray(source.negativeWordKeyOverrides)
+        ? source.negativeWordKeyOverrides
+        : {};
+      for (const [word, keys] of Object.entries(sourceWordOverrides)) {
+        const normalized = normalizedWord(word);
+        if (!activeNegativeWords.has(normalized) || !Array.isArray(keys)) continue;
+        const validKeys = Array.from(new Set(keys.filter(key => typeof key === "string" && key.length > 0 && key.length <= 200)));
+        if (validKeys.length) normalizedWordOverrides[normalized] = validKeys;
+      }
       return {
         ...source,
         note: typeof source.note === "string" ? source.note.slice(0, 100) : "",
         groups: normalizedGroups,
         queryRows: normalizedRows,
         assignments: normalizedAssignments,
+        negativeWordKeyOverrides: normalizedWordOverrides,
         selectedLengths,
         settings: source.settings && typeof source.settings === "object" && !Array.isArray(source.settings) ? source.settings : {}
       };
@@ -979,6 +1027,7 @@
       wordsInput.value = state.words;
       phrasesInput.value = state.phrases;
       rawWords = typeof state.rawWords === "string" ? state.rawWords : state.words;
+      negativeWordKeyOverrides = state.negativeWordKeyOverrides || Object.create(null);
       rawPhrases = typeof state.rawPhrases === "string" ? state.rawPhrases : state.phrases;
       groups = state.groups;
       queryRows = state.queryRows;
@@ -1379,6 +1428,7 @@
       const displayed = wordsInput.value;
       rawWords = dashSetting.checked ? unformatWords(displayed, rawWords) : displayed;
       if (cleanSetting.checked) rawWords = cleanWordText(rawWords);
+      pruneNegativeWordKeyOverrides();
       if (dashSetting.checked || cleanSetting.checked) {
         const desired = dashSetting.checked ? formatWords(rawWords) : rawWords;
         replaceKeepingCursor(wordsInput, desired, (o, n, p) => dashSetting.checked ? mapWordCursor(o, n, p) : Math.min(p, n.length));
@@ -1413,7 +1463,7 @@
       wordsScroll.edited();
       scheduleRecalculate();
     }
-    async function normalFormForNegativeWord(source) {
+    async function analysisForNegativeWord(source) {
       const word = normalizedWord(source);
       let analysis = morphCache.get(word);
       if (!analysis && morphAvailable && /[а-яё]/iu.test(word)) {
@@ -1433,15 +1483,25 @@
           scheduleMorphologyRetry();
         }
       }
-      return analysis?.lemma || word;
+      return {
+        word: analysis?.lemma || word,
+        key: analysis?.key || `word:${word}`
+      };
     }
     async function addNegativeWord(source) {
-      const word = await normalFormForNegativeWord(source);
+      const analysis = await analysisForNegativeWord(source);
       return performHistoryAction(() => {
-        if (getNegativeWords(rawWords, []).has(normalizedWord(word))) return;
-        rawWords += (rawWords && !/[\s,;]$/u.test(rawWords) ? " " : "") + word;
-        if (cleanSetting.checked) rawWords = cleanWordText(rawWords);
-        setWordsFromCanonical();
+        const normalized = normalizedWord(analysis.word);
+        const keyAdded = addNegativeWordKeyOverride(normalized, analysis.key);
+        if (!getNegativeWords(rawWords, []).has(normalized)) {
+          rawWords += (rawWords && !/[\s,;]$/u.test(rawWords) ? " " : "") + analysis.word;
+          if (cleanSetting.checked) rawWords = cleanWordText(rawWords);
+          setWordsFromCanonical();
+        } else if (!keyAdded) {
+          return;
+        } else {
+          scheduleRecalculate();
+        }
       });
     }
     function negativeWordRangeAt(text, position) {
@@ -1465,6 +1525,7 @@
         wordsInput.value = next;
         rawWords = dashSetting.checked ? unformatWords(next, rawWords) : next;
         if (cleanSetting.checked) rawWords = cleanWordText(rawWords, true);
+        pruneNegativeWordKeyOverrides();
         setWordsFromCanonical();
         const cursor = Math.min(removeStart, wordsInput.value.length);
         wordsInput.setSelectionRange(cursor, cursor);
@@ -1865,7 +1926,12 @@
       const draftPending = document.activeElement === phrasesInput && !/[,\n]\s*$/u.test(rawPhrases);
       const negativePhrases = getNegativePhrases(rawPhrases, warnings, draftPending);
       queueMorphology([...negativeWords, ...negativePhrases.flatMap(phrase => phrase.words)]);
-      const negativeWordKeys = new Set(Array.from(negativeWords, morphKey));
+      const negativeWordKeys = new Set();
+      for (const word of negativeWords) {
+        const internalKeys = negativeWordKeyOverrides[word];
+        if (Array.isArray(internalKeys) && internalKeys.length) internalKeys.forEach(key => negativeWordKeys.add(key));
+        else negativeWordKeys.add(morphKey(word));
+      }
       const remaining = [];
       for (const row of rows) {
         const words = getWords(queryPhrase(row.line));
@@ -2170,6 +2236,7 @@
         storeHistory("action", "before-clear");
         if (name === "words") {
           rawWords = "";
+          negativeWordKeyOverrides = Object.create(null);
           wordsInput.value = "";
         } else if (name === "phrases") {
           rawPhrases = "";
@@ -2208,6 +2275,7 @@
         wordsInput.value = "";
         phrasesInput.value = "";
         rawWords = "";
+        negativeWordKeyOverrides = Object.create(null);
         rawPhrases = "";
         queryRows = [];
         sourceCache = { value: null, rows: [] };
