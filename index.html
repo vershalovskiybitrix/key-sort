@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Key Sort — сортировка поисковых запросов</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTgiIGZpbGw9IiMyNDRkYjciLz48cGF0aCBkPSJNMjQgMzJINDAiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+">
-  <link rel="stylesheet" href="assets/app.css?v=1">
+  <link rel="stylesheet" href="assets/app.css?v=2">
 </head>
 <body>
   <header class="site-header">
@@ -67,6 +67,20 @@
             <div class="result-options-root" id="resultOptionsRoot">
               <button type="button" class="field-button" id="resultOptionsButton" aria-haspopup="true" aria-expanded="false" aria-controls="resultOptionsMenu">Фильтр</button>
               <div class="result-options-menu" id="resultOptionsMenu" hidden>
+                <label class="result-filter-group">
+                  <span class="result-options-title">Поисковый запрос</span>
+                  <input type="search" class="result-filter-input" id="queryTextFilter" maxlength="200" autocomplete="off" placeholder="Содержит текст">
+                </label>
+                <div class="result-filter-group" id="frequencyFilterSection" hidden>
+                  <div class="result-options-title">Частотность</div>
+                  <div class="result-frequency-filter">
+                    <select id="frequencyFilterOperator" aria-label="Условие фильтра частотности">
+                      <option value="gt">Больше</option>
+                      <option value="lt">Меньше</option>
+                    </select>
+                    <input type="text" class="result-filter-input" id="frequencyFilterValue" maxlength="15" inputmode="numeric" pattern="[0-9]*" placeholder="Число" aria-label="Частотность для сравнения">
+                  </div>
+                </div>
                 <div class="result-options-title">Показывать поисковые запросы, состоящие из:</div>
                 <label class="result-option-row"><input type="checkbox" data-query-length="1"><span>1 слово</span></label>
                 <label class="result-option-row"><input type="checkbox" data-query-length="2"><span>2 слова</span></label>
@@ -165,6 +179,6 @@
   </main>
   <footer class="site-footer">Inspired by Denis Efimov<br>Made by Anton Vershalovskiy · <a href="https://github.com/vershalovskiybitrix/key-sort" target="_blank" rel="noreferrer noopener">GitHub</a></footer>
 
-  <script src="assets/app.js?v=2"></script>
+  <script src="assets/app.js?v=3"></script>
 </body>
 </html>

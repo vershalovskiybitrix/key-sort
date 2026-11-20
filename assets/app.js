@@ -42,6 +42,10 @@
     const resultOptionsButton = $("resultOptionsButton");
     const resultOptionsMenu = $("resultOptionsMenu");
     const showAllButton = $("showAllButton");
+    const queryTextFilter = $("queryTextFilter");
+    const frequencyFilterSection = $("frequencyFilterSection");
+    const frequencyFilterOperator = $("frequencyFilterOperator");
+    const frequencyFilterValue = $("frequencyFilterValue");
     const lengthChecks = Array.from(document.querySelectorAll("[data-query-length]"));
     const defaultPageTitle = document.title;
     const MAX_IMPORT_FILE_BYTES = 25 * 1024 * 1024;
@@ -98,10 +102,13 @@
     }
     function snapshot() {
       const active = document.activeElement;
-      const focused = [queriesInput, wordsInput, phrasesInput, noteInput].includes(active) ? active : null;
+      const focused = [queriesInput, wordsInput, phrasesInput, noteInput, queryTextFilter, frequencyFilterValue].includes(active) ? active : null;
       return {
         note: noteInput.value,
         selectedLengths: lengthChecks.filter(ch => ch.checked).map(ch => Number(ch.dataset.queryLength)),
+        queryTextFilter: queryTextFilter.value,
+        frequencyFilterOperator: frequencyFilterOperator.value,
+        frequencyFilterValue: frequencyFilterValue.value,
         queries: queriesInput.value,
         words: wordsInput.value,
         phrases: phrasesInput.value,
@@ -125,6 +132,8 @@
     }
     function equalSnapshot(a, b) {
       return a.note === b.note && a.selectedLengths.join(",") === b.selectedLengths.join(",") &&
+        a.queryTextFilter === b.queryTextFilter && a.frequencyFilterOperator === b.frequencyFilterOperator &&
+        a.frequencyFilterValue === b.frequencyFilterValue &&
         a.queries === b.queries && a.words === b.words && a.phrases === b.phrases &&
         a.rawWords === b.rawWords && a.rawPhrases === b.rawPhrases && a.negativeWordKeyOverrides === b.negativeWordKeyOverrides &&
         a.queryRows === b.queryRows && a.groups === b.groups && a.assignments === b.assignments &&
@@ -189,13 +198,38 @@
     function activeLengths() {
       return new Set(lengthChecks.filter(ch => ch.checked).map(ch => Number(ch.dataset.queryLength)));
     }
-    function visibleByLength(rows) {
+    function activeQueryTextFilter() {
+      return queryTextFilter.value.trim().normalize("NFC").toLocaleLowerCase("ru-RU");
+    }
+    function activeFrequencyFilter() {
+      if (!frequencyMode.checked || frequencyFilterValue.value === "") return null;
+      const value = Number(frequencyFilterValue.value);
+      return Number.isFinite(value) && value >= 0 ? value : null;
+    }
+    function hasActiveResultFilters() {
+      return activeLengths().size > 0 || Boolean(activeQueryTextFilter()) || activeFrequencyFilter() !== null;
+    }
+    function visibleByFilters(rows) {
       const selected = activeLengths();
-      if (!selected.size) return rows;
+      const phraseNeedle = activeQueryTextFilter();
+      const frequencyLimit = activeFrequencyFilter();
       return rows.filter(row => {
-        const count = getWords(queryPhrase(row.line)).length;
-        return selected.has(count >= 6 ? 6 : count);
+        const parsed = parseQueryLine(row.line);
+        if (selected.size) {
+          const count = getWords(parsed.phrase).length;
+          if (!selected.has(count >= 6 ? 6 : count)) return false;
+        }
+        if (phraseNeedle && !parsed.phrase.normalize("NFC").toLocaleLowerCase("ru-RU").includes(phraseNeedle)) return false;
+        if (frequencyLimit !== null) {
+          if (parsed.frequency === "") return false;
+          const frequency = Number(parsed.frequency);
+          if (frequencyFilterOperator.value === "lt" ? frequency >= frequencyLimit : frequency <= frequencyLimit) return false;
+        }
+        return true;
       });
+    }
+    function syncFrequencyFilterVisibility() {
+      frequencyFilterSection.hidden = !frequencyMode.checked;
     }
     function syncClickableView() {
       const enabled = clickSetting.checked;
@@ -215,6 +249,9 @@
       syncPageTitle();
       const chosen = new Set(state.selectedLengths || []);
       lengthChecks.forEach(ch => { ch.checked = chosen.has(Number(ch.dataset.queryLength)); });
+      queryTextFilter.value = state.queryTextFilter || "";
+      frequencyFilterOperator.value = state.frequencyFilterOperator === "lt" ? "lt" : "gt";
+      frequencyFilterValue.value = state.frequencyFilterValue || "";
       queriesInput.value = state.queries;
       wordsInput.value = state.words;
       phrasesInput.value = state.phrases;
@@ -233,6 +270,7 @@
       copyFrequencySetting.checked = Boolean(state.copyFrequency);
       autoLemmaFrequencySetting.checked = Boolean(state.autoLemmaFrequency);
       siteFontsSetting.checked = state.siteFonts !== false;
+      syncFrequencyFilterVisibility();
       sourceCache = { value: queriesInput.value, rows: queryRows };
       queueMorphology(queryRows.flatMap(row => getWords(queryPhrase(row.line))));
       syncFontMode();
@@ -241,7 +279,7 @@
       wordsScroll.edited();
       phrasesScroll.edited();
       const target = state.focusId ? document.getElementById(state.focusId) : null;
-      if (target && [queriesInput, wordsInput, phrasesInput, noteInput].includes(target)) {
+      if (target && [queriesInput, wordsInput, phrasesInput, noteInput, queryTextFilter, frequencyFilterValue].includes(target)) {
         target.focus({preventScroll: true});
         const start = Math.min(target.value.length, state.selectionStart ?? target.value.length);
         const end = Math.min(target.value.length, state.selectionEnd ?? start);
@@ -296,7 +334,7 @@
       });
     }
     function applyVisibleSorting() {
-      lastVisible = sortVisibleRows(visibleByLength(lastRemaining));
+      lastVisible = sortVisibleRows(visibleByFilters(lastRemaining));
       clickableOutput.scrollTop = 0;
       lastRenderedClickable = null;
       renderClickable(lastVisible, true);
@@ -626,7 +664,10 @@
           copyFrequency: copyFrequencySetting.checked,
           copyFrequencyVersion: 2,
           autoLemmaFrequency: autoLemmaFrequencySetting.checked,
-          siteFonts: siteFontsSetting.checked
+          siteFonts: siteFontsSetting.checked,
+          queryTextFilter: queryTextFilter.value,
+          frequencyFilterOperator: frequencyFilterOperator.value,
+          frequencyFilterValue: frequencyFilterValue.value
         }
       };
     }
@@ -716,6 +757,12 @@
       copyFrequencySetting.checked = Number(settings.copyFrequencyVersion) >= 2 && Boolean(settings.copyFrequency);
       autoLemmaFrequencySetting.checked = Boolean(settings.autoLemmaFrequency);
       siteFontsSetting.checked = settings.siteFonts !== false;
+      queryTextFilter.value = typeof settings.queryTextFilter === "string" ? settings.queryTextFilter.slice(0, 200) : "";
+      frequencyFilterOperator.value = settings.frequencyFilterOperator === "lt" ? "lt" : "gt";
+      frequencyFilterValue.value = typeof settings.frequencyFilterValue === "string" || typeof settings.frequencyFilterValue === "number"
+        ? String(settings.frequencyFilterValue).replace(/\D+/gu, "").slice(0, 15)
+        : "";
+      syncFrequencyFilterVisibility();
       lemmaFrequencyHasResult = false;
       $("lemmaFrequencyItems").replaceChildren(lemmaFrequencyMessage("Нажмите «Обновить»"));
       syncFontMode();
@@ -1707,7 +1754,7 @@
       }
       const unassigned = remaining.filter(line => !assignedGroup(line));
       lastRemaining = unassigned;
-      lastVisible = sortVisibleRows(visibleByLength(unassigned));
+      lastVisible = sortVisibleRows(visibleByFilters(unassigned));
       if (autoLemmaFrequencySetting.checked) refreshLemmaFrequency();
       // Опции меняют только отображение; базовая минусация остаётся прежней.
       renderClickable(lastVisible);
@@ -1719,7 +1766,7 @@
       $("excludedCount").textContent = formatter.format(rows.length - remaining.length);
       $("remainingCount").textContent = formatter.format(unassigned.length);
       $("shownCount").textContent = formatter.format(lastVisible.length);
-      $("shownMetric").hidden = activeLengths().size === 0;
+      $("shownMetric").hidden = !hasActiveResultFilters();
       const warningBox = $("warning");
       if (warnings.length || morphologyWarning) {
         const inputWarning = warnings.length
@@ -1744,10 +1791,26 @@
       recalculate();
       storeHistory("action", "length");
     }));
+    queryTextFilter.addEventListener("input", e => {
+      scheduleRecalculate(120);
+      storeTextEdit("query-filter", e);
+    });
+    frequencyFilterOperator.addEventListener("change", () => {
+      recalculate();
+      storeHistory("action", "frequency-filter");
+    });
+    frequencyFilterValue.addEventListener("input", e => {
+      frequencyFilterValue.value = frequencyFilterValue.value.replace(/\D+/gu, "").slice(0, 15);
+      scheduleRecalculate(120);
+      storeTextEdit("frequency-filter", e);
+    });
     showAllButton.addEventListener("click", () => {
       lengthChecks.forEach(ch => { ch.checked = false; });
+      queryTextFilter.value = "";
+      frequencyFilterOperator.value = "gt";
+      frequencyFilterValue.value = "";
       recalculate();
-      storeHistory("action", "length");
+      storeHistory("action", "filter");
     });
     resultOptionsButton.addEventListener("click", () => {
       const open = resultOptionsMenu.hidden;
@@ -1859,6 +1922,7 @@
     frequencyMode.addEventListener("change", () => {
       sourceCache.value = null;
       lastRenderedClickable = null;
+      syncFrequencyFilterVisibility();
       recalculate();
       storeHistory("action", "setting");
     });
@@ -2058,6 +2122,9 @@
         lemmaFrequencyPending = false;
         lemmaFrequencyHasResult = false;
         lengthChecks.forEach(check => { check.checked = false; });
+        queryTextFilter.value = "";
+        frequencyFilterOperator.value = "gt";
+        frequencyFilterValue.value = "";
         clickSetting.checked = true;
         cleanSetting.checked = true;
         cleanPhrasesSetting.checked = true;
@@ -2067,6 +2134,7 @@
         copyFrequencySetting.checked = false;
         autoLemmaFrequencySetting.checked = false;
         siteFontsSetting.checked = true;
+        syncFrequencyFilterVisibility();
         $("groupName").value = "";
         $("importProjectFile").value = "";
         $("lemmaFrequencyItems").replaceChildren(lemmaFrequencyMessage("Нажмите «Обновить»"));

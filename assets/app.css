@@ -75,6 +75,14 @@
     .result-options-menu { position: absolute; z-index: 30; top: calc(100% + 9px); left: 0; width: min(315px, calc(100vw - 38px)); padding: 11px; background: #e9e9e8; border: 1px solid #888; box-shadow: none; border-radius: 0; }
     .result-options-menu[hidden] { display: none !important; }
     .result-options-title { font-size: 13px; color: #000; font-weight: 700; margin: 4px 7px 8px; }
+    .result-filter-group { display: block; margin-bottom: 12px; }
+    .result-filter-input, .result-frequency-filter select { width: 100%; height: 30px; border: 1px solid #aaa; border-radius: 0; color: #000; font: 400 13px/1.35 var(--font-body); outline: 0; }
+    .result-filter-input { padding: 0 8px; background: #fff; }
+    .result-filter-input::placeholder { color: #9da6b4; opacity: 1; }
+    .result-frequency-filter { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .result-frequency-filter select { padding: 0 6px; background: transparent; }
+    .result-filter-input:focus, .result-frequency-filter select:focus { border-color: #000; outline: 2px solid #000; outline-offset: -1px; }
+    .result-filter-group[hidden] { display: none !important; }
     .result-option-row { display: flex; align-items: center; gap: 10px; padding: 7px; border-radius: 0; font-size: 13px; cursor: pointer; }
     .result-option-row:hover { background: #eee; }
     .result-option-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer; }
