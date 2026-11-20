@@ -125,7 +125,7 @@
     .setting-row { display: flex; align-items: flex-start; gap: 11px; padding: 10px; border-radius: 0; cursor: pointer; line-height: 1.3; font-size: 13px; }
     .setting-row:hover { background: #eee; }
     .setting-row input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; flex-shrink: 0; cursor: pointer; }
-    .settings-project { margin-top: 6px; padding-top: 6px; border-top: 1px solid #aaa; }
+    .settings-project { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #aaa; }
     .settings-project-actions { display: flex; gap: 6px; padding: 0 10px 6px; }
     .settings-project-actions .field-button { flex: 1 1 0; min-width: 0; padding-inline: 6px; }
     .query-mode { display: inline-flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 13px; cursor: pointer; }
