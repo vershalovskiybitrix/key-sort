@@ -1300,6 +1300,8 @@
       return message;
     }
     function renderLemmaFrequency() {
+      const items = $("lemmaFrequencyItems");
+      const previousScrollTop = items.scrollTop;
       const counts = new Map();
       for (const row of lastRemaining) {
         const inQuery = new Map();
@@ -1316,7 +1318,6 @@
         }
       }
       const sorted = Array.from(counts.values()).sort((a, b) => b.count - a.count || a.lemma.localeCompare(b.lemma, "ru"));
-      const items = $("lemmaFrequencyItems");
       if (!sorted.length) {
         items.replaceChildren(lemmaFrequencyMessage("Нераспределённых запросов нет"));
       } else {
@@ -1346,6 +1347,7 @@
         });
         items.replaceChildren(header, ...rows);
       }
+      items.scrollTop = previousScrollTop;
       lemmaFrequencyHasResult = true;
       lemmaFrequencyPending = false;
       $("refreshLemmaFrequency").disabled = false;
@@ -1545,6 +1547,8 @@
     }
     function renderGroupLists(lines) {
       const root = $("groupLists");
+      const lemmaFrequencyItems = $("lemmaFrequencyItems");
+      const lemmaFrequencyScrollTop = lemmaFrequencyItems.scrollTop;
       const groupedById = new Map(groups.map(group => [group.id, []]));
       for (const line of lines) {
         const groupId = assignedGroup(line);
@@ -1584,6 +1588,7 @@
         block.append(head, items);
         return block;
       }), $("groupAddSection"));
+      lemmaFrequencyItems.scrollTop = lemmaFrequencyScrollTop;
     }
     function toggleGroup(row, column) {
       const queryRow = lastVisible[row];
