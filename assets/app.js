@@ -264,9 +264,9 @@
     const getWords = text => (text.normalize("NFC").toLocaleLowerCase("ru-RU").match(/[\p{L}\p{N}]+(?:\.[0-9]+)?/gu) || []);
     function parseQueryLine(line) {
       if (!frequencyMode.checked) return { phrase: line, frequency: "" };
-      const match = line.match(/^(.*?)(?:\s*[,;]\s*|\t+)(\d+)\s*$/u);
+      const match = line.match(/^(.*?)(?:\s*[,;]\s*|\t+)(\d(?:[\d \u00A0\u202F]*\d)?)\s*$/u);
       if (!match || !match[1].trim()) return { phrase: line, frequency: "" };
-      return { phrase: match[1].trim(), frequency: match[2] };
+      return { phrase: match[1].trim(), frequency: match[2].replace(/[ \u00A0\u202F]/gu, "") };
     }
     const queryPhrase = line => parseQueryLine(line).phrase;
     function formatQueryLines(rows) {
