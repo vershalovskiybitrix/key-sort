@@ -150,6 +150,9 @@
     .query-grid.with-frequency .query-row { grid-template-columns: var(--group-columns) minmax(430px, 1fr) 72px 120px; }
     .query-row:last-child { border-bottom: 0; }
     .query-row-header { position: sticky; top: 0; z-index: 3; height: 30px; min-height: 30px; background: #efefed; font-weight: 700; border-bottom: 1px solid #aaa; }
+    .query-sort-button { height: 100%; border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; cursor: pointer; text-align: left; }
+    .query-sort-button.query-frequency { text-align: right; }
+    .query-sort-button:focus-visible { outline: 2px solid #000; outline-offset: -2px; }
     .group-head, .group-cell { width: 24px; display: grid; place-items: center; border-right: 1px solid #ddd; }
     .group-head { font-size: 11px; }
     .group-cell { appearance: none; margin: 0; padding: 0; border: 0; border-right: 1px solid #ddd; border-radius: 0; background: #fff; cursor: pointer; color: #111; font: 700 16px/1 var(--font-body); }
@@ -436,6 +439,8 @@
     let rawPhrases = phrasesInput.value; // Текст без автоматически добавленных оболочек.
     let lastRemaining = [];
     let lastVisible = [];
+    let querySortMode = "original";
+    let frequencySortMode = "original";
     let queryRows = [];
     let sourceCache = { value: null, rows: [] };
     const createDefaultGroups = () => [
@@ -647,6 +652,42 @@
         const line = typeof row === "string" ? row : row.line;
         return copyFrequencySetting.checked ? line : queryPhrase(line);
       }).join("\n");
+    }
+    function sortVisibleRows(rows) {
+      if (querySortMode === "original" && frequencySortMode === "original") return rows;
+      const originalIndex = new Map(rows.map((row, index) => [row.id, index]));
+      return [...rows].sort((a, b) => {
+        let compared = 0;
+        if (querySortMode !== "original") {
+          compared = queryPhrase(a.line).localeCompare(queryPhrase(b.line), "ru", { sensitivity: "base", numeric: true });
+          if (querySortMode === "desc") compared = -compared;
+        } else {
+          const aValue = parseQueryLine(a.line).frequency;
+          const bValue = parseQueryLine(b.line).frequency;
+          const aNumber = aValue === "" ? null : Number(aValue);
+          const bNumber = bValue === "" ? null : Number(bValue);
+          if (aNumber === null && bNumber !== null) compared = 1;
+          else if (aNumber !== null && bNumber === null) compared = -1;
+          else if (aNumber !== null && bNumber !== null) compared = frequencySortMode === "desc" ? bNumber - aNumber : aNumber - bNumber;
+        }
+        return compared || originalIndex.get(a.id) - originalIndex.get(b.id);
+      });
+    }
+    function applyVisibleSorting() {
+      lastVisible = sortVisibleRows(visibleByLength(lastRemaining));
+      clickableOutput.scrollTop = 0;
+      lastRenderedClickable = null;
+      renderClickable(lastVisible, true);
+    }
+    function cycleQuerySort() {
+      querySortMode = querySortMode === "original" ? "asc" : querySortMode === "asc" ? "desc" : "original";
+      frequencySortMode = "original";
+      applyVisibleSorting();
+    }
+    function cycleFrequencySort() {
+      frequencySortMode = frequencySortMode === "original" ? "desc" : frequencySortMode === "desc" ? "asc" : "original";
+      querySortMode = "original";
+      applyVisibleSorting();
     }
     const createQueryRowId = () => `query-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
     function syncQueryRows(lines) {
@@ -1717,18 +1758,24 @@
         cell.title = group.name;
         header.append(cell);
       }
-      const phraseHead = document.createElement("div");
-      phraseHead.className = "query-text";
-      phraseHead.textContent = "Поисковый запрос";
+      const phraseHead = document.createElement("button");
+      phraseHead.type = "button";
+      phraseHead.className = "query-text query-sort-button";
+      phraseHead.textContent = `Поисковый запрос${querySortMode === "asc" ? " ▲" : querySortMode === "desc" ? " ▼" : ""}`;
+      phraseHead.title = "Сортировать по поисковому запросу";
+      phraseHead.addEventListener("click", cycleQuerySort);
       header.append(phraseHead);
       const searchHead = document.createElement("div");
       searchHead.className = "query-search-actions query-search-actions-head";
       searchHead.textContent = "Поиск";
       header.append(searchHead);
       if (frequencyMode.checked) {
-        const frequencyHead = document.createElement("div");
-        frequencyHead.className = "query-frequency";
-        frequencyHead.textContent = "Частотность";
+        const frequencyHead = document.createElement("button");
+        frequencyHead.type = "button";
+        frequencyHead.className = "query-frequency query-sort-button";
+        frequencyHead.textContent = `Частотность${frequencySortMode === "desc" ? " ▼" : frequencySortMode === "asc" ? " ▲" : ""}`;
+        frequencyHead.title = "Сортировать по частотности";
+        frequencyHead.addEventListener("click", cycleFrequencySort);
         header.append(frequencyHead);
       }
       grid.append(header);
@@ -1829,7 +1876,7 @@
       }
       const unassigned = remaining.filter(line => !assignedGroup(line));
       lastRemaining = unassigned;
-      lastVisible = visibleByLength(unassigned);
+      lastVisible = sortVisibleRows(visibleByLength(unassigned));
       if (autoLemmaFrequencySetting.checked) refreshLemmaFrequency();
       // Опции меняют только отображение; базовая минусация остаётся прежней.
       renderClickable(lastVisible);
@@ -2168,6 +2215,8 @@
         assignments = Object.create(null);
         lastRemaining = [];
         lastVisible = [];
+        querySortMode = "original";
+        frequencySortMode = "original";
         lastRenderedClickable = null;
         pendingQueryDeduplication = null;
         pendingNegativeWordNormalization = null;
