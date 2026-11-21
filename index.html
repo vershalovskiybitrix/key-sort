@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Key Sort — сортировка поисковых запросов</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTgiIGZpbGw9IiMyNDRkYjciLz48cGF0aCBkPSJNMjQgMzJINDAiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PC9zdmc+">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon-main.svg">
   <link rel="stylesheet" href="assets/app.css?v=3">
 </head>
 <body>
@@ -34,7 +34,7 @@
         <span class="save-status" id="saveStatus" aria-live="polite">Подготовка…</span>
       </div>
       <div class="header-actions" id="settingsRoot">
-        <a class="settings-button" href="services.html" title="Сервисы">Сервисы</a>
+        <div class="services-menu-root" data-services-menu></div>
         <a class="settings-button" href="help.html" target="_blank" rel="noreferrer noopener" title="Документация" aria-label="Открыть документацию">(?)</a>
         <button type="button" class="settings-button" id="settingsButton" aria-haspopup="true" aria-expanded="false" aria-controls="settingsMenu">Настройки</button>
         <div class="settings-menu" id="settingsMenu" hidden>
@@ -181,6 +181,7 @@
   </main>
   <footer class="site-footer">Inspired by Denis Efimov<br>Made by Anton Vershalovskiy · <a href="https://github.com/vershalovskiybitrix/key-sort" target="_blank" rel="noreferrer noopener">GitHub</a></footer>
 
+  <script src="assets/services-menu.js?v=1"></script>
   <script src="assets/app.js?v=7"></script>
 </body>
 </html>

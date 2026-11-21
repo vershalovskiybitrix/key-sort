@@ -41,11 +41,14 @@
     settings.addEventListener("click", () => requestExtension("OPEN_OPTIONS").catch(() => {}));
     try {
       const state = await requestExtension("STATUS", {}, 1500);
+      if (!state.version || state.version.split(".").map(Number).join("").padEnd(3, "0") < "110") {
+        location.replace("extension-install.html");
+        return;
+      }
       const missing = required.filter(name => !state[name]);
       label.textContent = missing.length ? `Расширение подключено. Не заполнено: ${missing.join(", ")}.` : "Расширение подключено и настроено.";
     } catch {
-      label.textContent = "Расширение Key Sort не установлено или отключено.";
-      settings.textContent = "Настройки расширения";
+      location.replace("extension-install.html");
     }
   }
 

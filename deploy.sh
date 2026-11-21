@@ -19,24 +19,29 @@ cd "$project_dir"
 chmod 0644 \
   app.py \
   index.html \
-  services.html \
   keyword-parser.html \
   budget-forecast.html \
   text-format.html \
   subtract.html \
   multiplier.html \
+  extension-install.html \
   assets/app.css \
   assets/app.js \
   assets/services.css \
   assets/services-common.js \
+  assets/services-menu.js \
+  assets/region-select.js \
   assets/keyword-parser.js \
   assets/budget-forecast.js \
   assets/text-format.js \
   assets/subtract.js \
   assets/multiplier.js \
+  assets/favicon-main.svg \
+  assets/favicon-services.svg \
   assets/vcg-logo.png \
   assets/fonts/RobotoMono.ttf \
-  assets/fonts/SourceCodePro.ttf
+  assets/fonts/SourceCodePro.ttf \
+  downloads/key-sort-extension.zip
 
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "$temp_dir"' EXIT

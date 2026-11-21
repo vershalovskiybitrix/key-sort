@@ -10,7 +10,7 @@ function element(id) {
 }
 const context = {
   window: { KeySortServices: { autoGrow() {}, lines() { return []; }, setStatus() {} } },
-  document: { getElementById: element },
+  document: { getElementById: element, querySelectorAll() { return []; } },
   Event: function Event(type) { this.type = type; },
   Set,
   Error,

@@ -1,16 +1,9 @@
 .service-page main { width: min(1200px, calc(100% - 40px)); }
 .service-topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
 .service-topbar h2 { margin: 0; font-size: 20px; }
-.service-links { display: flex; gap: 8px; flex-wrap: wrap; }
-.service-links a { text-decoration: none; }
-.services-list { border-top: 1px solid #888; }
-.service-list-row { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; padding: 18px 0; border-bottom: 1px solid #aaa; color: #000; text-decoration: none; }
-.service-list-row:hover .service-list-title { text-decoration: underline; }
-.service-list-title { font-family: var(--font-heading); font-weight: 700; }
-.service-list-description { font-size: 13px; line-height: 1.5; }
 .service-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .service-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.service-grid + .panel, .panel + .panel, .panel + .service-grid { margin-top: 16px; }
+.service-grid + .panel, .service-page main > .panel + .panel, .service-page main > .panel + .service-grid { margin-top: 16px; }
 .service-form { display: grid; gap: 12px; }
 .service-row { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
 .service-field { display: grid; gap: 5px; min-width: 150px; flex: 1 1 180px; font-size: 12px; }
@@ -25,9 +18,13 @@
 .service-textarea.auto-grow { min-height: 44px; height: 44px; max-height: 380px; }
 .service-status { min-height: 20px; margin-top: 10px; font-size: 12px; line-height: 1.5; }
 .service-status.error { border: 1px solid #000; padding: 9px 10px; }
-.extension-state { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid #aaa; border-bottom: 1px solid #aaa; margin-bottom: 16px; font-size: 12px; }
+.extension-toolbar { display: flex; align-items: stretch; gap: 16px; margin-bottom: 16px; }
+.extension-state { display: flex; flex: 1 1 auto; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid #aaa; border-bottom: 1px solid #aaa; margin: 0; font-size: 12px; }
 .extension-state strong { font-family: var(--font-heading); }
 .extension-state .field-button { margin-left: auto; }
+.extension-toolbar .services-menu-root { flex: 0 0 auto; align-self: center; }
+.extension-install-steps { margin: 0; padding-left: 24px; font-size: 13px; line-height: 1.7; }
+.template-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
 .data-table-wrap { overflow: auto; background: #fff; border: 1px solid #aaa; }
 .data-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
 .data-table th, .data-table td { padding: 7px 9px; border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; text-align: right; }
@@ -47,9 +44,14 @@
 @media (max-width: 780px) {
   .service-page main { width: calc(100% - 26px); }
   .service-topbar { align-items: flex-start; flex-direction: column; }
-  .service-list-row, .service-grid, .service-grid.three { grid-template-columns: minmax(0, 1fr); }
-  .extension-state .field-button { margin-left: 0; }
+  .extension-toolbar { align-items: center; }
   .summary-table { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-cell:nth-child(2) { border-right: 0; }
   .summary-cell:nth-child(-n+2) { border-bottom: 1px solid #aaa; }
+}
+@media (max-width: 600px) {
+  .service-grid, .service-grid.three { grid-template-columns: minmax(0, 1fr); }
+  .extension-toolbar { align-items: stretch; flex-direction: column; }
+  .extension-state .field-button { margin-left: 0; }
+  .extension-toolbar .services-menu-root { align-self: flex-start; }
 }

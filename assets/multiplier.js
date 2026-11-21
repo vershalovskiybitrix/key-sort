@@ -92,5 +92,15 @@
       api.setStatus(status, `${truncated ? "Достигнут лимит. " : ""}Результатов: ${shown.length}.`);
     } catch (error) { api.setStatus(status, error.message, true); }
   });
+  document.querySelectorAll("[data-template]").forEach(button => button.addEventListener("click", () => {
+    const textarea = document.getElementById("seoTemplate");
+    const selected = textarea.value.slice(textarea.selectionStart, textarea.selectionEnd);
+    const placeholder = button.dataset.template === "choice" ? "вариант 1|вариант 2" : "+ +слово 1|слово 2";
+    const open = button.dataset.template === "choice" ? "{" : "[";
+    const close = button.dataset.template === "choice" ? "}" : "]";
+    const insertion = `${open}${selected || placeholder}${close}`;
+    textarea.setRangeText(insertion, textarea.selectionStart, textarea.selectionEnd, "end");
+    textarea.focus();
+  }));
   window.KeySortMultiplier = { expand };
 })();

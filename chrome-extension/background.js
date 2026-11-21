@@ -2,7 +2,9 @@
 
 const SITE = "https://key-sort.vershalovskiy.com/";
 const WORDSTAT_URL = "https://searchapi.api.cloud.yandex.net/v2/wordstat/topRequests";
+const WORDSTAT_REGIONS_URL = "https://searchapi.api.cloud.yandex.net/v2/wordstat/getRegionsTree";
 const DIRECT_URL = "https://api.direct.yandex.ru/live/v4/json/";
+const DIRECT_DICTIONARIES_URL = "https://api.direct.yandex.ru/json/v5/dictionaries";
 const ALLOWED_DIRECT_METHODS = new Set(["CreateNewForecast", "GetForecastList", "GetForecast", "DeleteForecastReport"]);
 
 function pageRequest(sender) {
@@ -25,7 +27,7 @@ async function wordstat(payload) {
   if (!config.cloudApiKey || !config.folderId) throw new Error("Заполните API-ключ Yandex Cloud и ID каталога в настройках расширения");
   const phrase = String(payload.phrase || "").trim();
   if (!phrase) throw new Error("Пустой запрос");
-  const numPhrases = Math.max(1, Math.min(200, Number(payload.numPhrases) || 100));
+  const numPhrases = Math.max(1, Math.min(2000, Number(payload.numPhrases) || 2000));
   const body = { phrase, numPhrases, folderId: config.folderId };
   if (Array.isArray(payload.regions) && payload.regions.length) body.regions = payload.regions.map(String).slice(0, 50);
   const response = await fetch(WORDSTAT_URL, {
@@ -34,6 +36,37 @@ async function wordstat(payload) {
     body: JSON.stringify(body)
   });
   return parseResponse(response);
+}
+
+async function wordstatRegions() {
+  const config = await settings();
+  if (!config.cloudApiKey || !config.folderId) throw new Error("Заполните API-ключ Yandex Cloud и ID каталога в настройках расширения");
+  const response = await fetch(WORDSTAT_REGIONS_URL, {
+    method: "POST",
+    headers: { "Authorization": `Api-Key ${config.cloudApiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ folderId: config.folderId })
+  });
+  return parseResponse(response);
+}
+
+async function directRegions() {
+  const config = await settings();
+  if (!config.directOAuthToken) throw new Error("Заполните OAuth-токен Директа в настройках расширения");
+  const response = await fetch(DIRECT_DICTIONARIES_URL, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${config.directOAuthToken}`, "Accept-Language": "ru", "Content-Type": "application/json" },
+    body: JSON.stringify({ method: "get", params: { DictionaryNames: ["GeoRegions"] } })
+  });
+  const data = await parseResponse(response);
+  const items = data.result?.GeoRegions || [];
+  const byId = new Map(items.map(item => [Number(item.GeoRegionId), item]));
+  const labelFor = item => {
+    const labels = [item.GeoRegionName];
+    let parent = byId.get(Number(item.ParentId));
+    while (parent && labels.length < 4) { labels.unshift(parent.GeoRegionName); parent = byId.get(Number(parent.ParentId)); }
+    return labels.join(" → ");
+  };
+  return { regions: items.map(item => ({ id: item.GeoRegionId, label: labelFor(item) })) };
 }
 
 async function direct(payload) {
@@ -51,10 +84,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     if (message.action === "STATUS") {
       const config = await settings();
-      return { "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
+      return { version: chrome.runtime.getManifest().version, "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
     }
     if (message.action === "OPEN_OPTIONS") { await chrome.runtime.openOptionsPage(); return true; }
     if (message.action === "WORDSTAT_TOP") return wordstat(message.payload || {});
+    if (message.action === "WORDSTAT_REGIONS") return wordstatRegions();
+    if (message.action === "DIRECT_REGIONS") return directRegions();
     if (message.action === "DIRECT_CALL") return direct(message.payload || {});
     throw new Error("Неизвестное действие");
   })().then(data => sendResponse({ ok: true, data })).catch(error => sendResponse({ ok: false, error: error.message }));

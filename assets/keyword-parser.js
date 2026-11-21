@@ -3,22 +3,31 @@
   const api = window.KeySortServices;
   const form = document.getElementById("parserForm");
   const status = document.getElementById("parserStatus");
+  let rows = [];
   api.bindExtensionState(["API-ключ Yandex Cloud", "ID каталога"]);
+  window.KeySortRegions.bindRegionSelect(document.getElementById("parserRegions"), "WORDSTAT_REGIONS").catch(error => api.setStatus(status, `Не удалось загрузить регионы: ${error.message}`, true));
+
+  document.getElementById("parserCopy").addEventListener("click", async () => {
+    if (!rows.length) return;
+    await navigator.clipboard.writeText(rows.map(row => `${row.phrase}\t${row.count}`).join("\n"));
+    api.setStatus(status, `Скопировано строк: ${rows.length}.`);
+  });
 
   form.addEventListener("submit", async event => {
     event.preventDefault();
     api.setStatus(status, "Запрос отправлен…");
     document.getElementById("parserResults").textContent = "";
     try {
-      const regions = document.getElementById("parserRegions").value.split(/[,\s]+/).filter(Boolean);
+      const region = document.getElementById("parserRegions").value;
       const data = await api.requestExtension("WORDSTAT_TOP", {
         phrase: document.getElementById("parserQuery").value.trim(),
         numPhrases: Number(document.getElementById("parserLimit").value),
-        regions
+        regions: region ? [region] : []
       });
       document.getElementById("parserTotal").textContent = `Общая частотность: ${Number(data.totalCount || 0).toLocaleString("ru-RU")}`;
       const body = document.getElementById("parserResults");
-      for (const row of data.results || []) {
+      rows = data.results || [];
+      for (const row of rows) {
         const tr = document.createElement("tr");
         const phrase = document.createElement("td");
         const count = document.createElement("td");
@@ -27,7 +36,7 @@
         tr.append(phrase, count);
         body.append(tr);
       }
-      api.setStatus(status, `Получено фраз: ${(data.results || []).length}.`);
+      api.setStatus(status, `Получено фраз: ${rows.length}.`);
     } catch (error) {
       api.setStatus(status, error.message, true);
     }
