@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Key Sort — API Яндекса",
+  "version": "1.0.0",
+  "description": "Локально хранит ключи и выполняет запросы Wordstat и Яндекс Директа для Key Sort.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://searchapi.api.cloud.yandex.net/*",
+    "https://api.direct.yandex.ru/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "options_page": "options.html",
+  "content_scripts": [{
+    "matches": ["https://key-sort.vershalovskiy.com/*"],
+    "js": ["content.js"],
+    "run_at": "document_start"
+  }]
+}

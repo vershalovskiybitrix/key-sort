@@ -19,8 +19,21 @@ cd "$project_dir"
 chmod 0644 \
   app.py \
   index.html \
+  services.html \
+  keyword-parser.html \
+  budget-forecast.html \
+  text-format.html \
+  subtract.html \
+  multiplier.html \
   assets/app.css \
   assets/app.js \
+  assets/services.css \
+  assets/services-common.js \
+  assets/keyword-parser.js \
+  assets/budget-forecast.js \
+  assets/text-format.js \
+  assets/subtract.js \
+  assets/multiplier.js \
   assets/vcg-logo.png \
   assets/fonts/RobotoMono.ttf \
   assets/fonts/SourceCodePro.ttf
