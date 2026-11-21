@@ -41,6 +41,11 @@
 .seo-syntax code { border: 1px solid #aaa; padding: 1px 4px; }
 .multiplier-simple textarea { min-height: 120px; max-height: 380px; }
 .result-note { margin-top: 8px; font-size: 11px; }
+.favicon-options { border-top: 1px solid #888; }
+.favicon-option { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 24px; align-items: center; padding: 20px 0; border-bottom: 1px solid #aaa; }
+.favicon-sizes { display: flex; align-items: end; gap: 12px; }
+.favicon-option h2 { margin: 0 0 6px; font-size: 16px; }
+.favicon-option p { margin: 0; font-size: 13px; }
 @media (max-width: 780px) {
   .service-page main { width: calc(100% - 26px); }
   .service-topbar { align-items: flex-start; flex-direction: column; }

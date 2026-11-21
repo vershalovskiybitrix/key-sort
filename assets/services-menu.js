@@ -32,6 +32,10 @@
     });
     button.addEventListener("click", event => {
       event.stopPropagation();
+      const settingsMenu = document.getElementById("settingsMenu");
+      const settingsButton = document.getElementById("settingsButton");
+      if (settingsMenu) settingsMenu.hidden = true;
+      if (settingsButton) settingsButton.setAttribute("aria-expanded", "false");
       panel.hidden = !panel.hidden;
       button.setAttribute("aria-expanded", String(!panel.hidden));
     });
