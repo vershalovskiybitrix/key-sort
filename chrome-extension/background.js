@@ -153,7 +153,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     if (message.action === "STATUS") {
       const config = await settings();
-      return { version: chrome.runtime.getManifest().version, "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
+      return { version: chrome.runtime.getManifest().version, forecastSafety: true, "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
     }
     if (message.action === "OPEN_OPTIONS") { await chrome.runtime.openOptionsPage(); return true; }
     if (message.action === "DIRECT_FORECAST_BEGIN") return beginForecast();

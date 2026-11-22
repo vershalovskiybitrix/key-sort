@@ -50,7 +50,7 @@ function send(action, payload = {}) {
 
 (async () => {
   const status = await send("STATUS");
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(status.data)), { version: "1.1.0", "API-ключ Yandex Cloud": true, "ID каталога": true, "OAuth-токен Директа": true });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(status.data)), { version: "1.1.0", forecastSafety: true, "API-ключ Yandex Cloud": true, "ID каталога": true, "OAuth-токен Директа": true });
   assert.ok(!JSON.stringify(status).includes("cloud-secret"));
 
   const wordstat = await send("WORDSTAT_TOP", { phrase: "купить диван", numPhrases: 25, regions: ["213"] });

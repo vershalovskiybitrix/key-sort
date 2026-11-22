@@ -63,6 +63,8 @@
     let sessionId = null;
     let keepAlive = null;
     try {
+      const extensionState = await api.requestExtension("STATUS");
+      if (!extensionState.forecastSafety) throw new Error("Расширение устарело. Обновите его на странице установки и перезагрузите в Chrome");
       const session = await api.requestExtension("DIRECT_FORECAST_BEGIN");
       sessionId = session.sessionId;
       keepAlive = setInterval(() => api.requestExtension("DIRECT_FORECAST_TOUCH", { sessionId }).catch(() => {}), 30000);
