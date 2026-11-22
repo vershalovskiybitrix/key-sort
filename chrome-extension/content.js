@@ -15,7 +15,9 @@
         id: message.id,
         ok: !error && Boolean(response?.ok),
         data: response?.data,
-        error: error || response?.error || "Расширение не выполнило запрос"
+        error: error || response?.error || "Расширение не выполнило запрос",
+        code: response?.code,
+        retryAfter: response?.retryAfter
       }, allowedOrigin);
     });
   });

@@ -6,6 +6,11 @@ const WORDSTAT_REGIONS_URL = "https://searchapi.api.cloud.yandex.net/v2/wordstat
 const DIRECT_URL = "https://api.direct.yandex.ru/live/v4/json/";
 const DIRECT_DICTIONARIES_URL = "https://api.direct.yandex.ru/json/v5/dictionaries";
 const ALLOWED_DIRECT_METHODS = new Set(["CreateNewForecast", "GetForecastList", "GetForecast", "DeleteForecastReport"]);
+const FORECAST_HOURLY_LIMIT = 30;
+const FORECAST_DAILY_LIMIT = 100;
+const FORECAST_LOCK_TTL = 2 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 
 function pageRequest(sender) {
   return Boolean(sender.tab?.url?.startsWith(SITE));
@@ -13,6 +18,51 @@ function pageRequest(sender) {
 
 async function settings() {
   return chrome.storage.local.get(["cloudApiKey", "folderId", "directOAuthToken"]);
+}
+
+async function beginForecast() {
+  const now = Date.now();
+  const { directForecastLock } = await chrome.storage.local.get("directForecastLock");
+  if (directForecastLock?.expiresAt > now) throw new Error("Другой расчёт прогноза уже выполняется");
+  const lock = { id: crypto.randomUUID(), expiresAt: now + FORECAST_LOCK_TTL, forecastIds: [] };
+  await chrome.storage.local.set({ directForecastLock: lock });
+  return { sessionId: lock.id };
+}
+
+async function forecastLock(sessionId, refresh = true) {
+  const { directForecastLock } = await chrome.storage.local.get("directForecastLock");
+  if (!sessionId || directForecastLock?.id !== sessionId || directForecastLock.expiresAt <= Date.now()) {
+    throw new Error("Сеанс расчёта завершён. Запустите расчёт заново");
+  }
+  if (refresh) {
+    directForecastLock.expiresAt = Date.now() + FORECAST_LOCK_TTL;
+    await chrome.storage.local.set({ directForecastLock });
+  }
+  return directForecastLock;
+}
+
+async function endForecast(sessionId) {
+  const { directForecastLock } = await chrome.storage.local.get("directForecastLock");
+  if (directForecastLock?.id === sessionId) await chrome.storage.local.remove("directForecastLock");
+  return true;
+}
+
+async function reserveForecastSlot() {
+  const now = Date.now();
+  const stored = await chrome.storage.local.get("directForecastTimestamps");
+  const timestamps = (stored.directForecastTimestamps || []).filter(timestamp => timestamp > now - DAY).sort((a, b) => a - b);
+  const hourly = timestamps.filter(timestamp => timestamp > now - HOUR);
+  const retryAt = Math.max(
+    hourly.length >= FORECAST_HOURLY_LIMIT ? hourly[0] + HOUR : 0,
+    timestamps.length >= FORECAST_DAILY_LIMIT ? timestamps[0] + DAY : 0
+  );
+  if (retryAt > now) {
+    const error = new Error("Достигнут лимит прогнозов. Расчёт продолжится автоматически");
+    error.code = "FORECAST_RATE_LIMIT";
+    error.retryAfter = retryAt - now;
+    throw error;
+  }
+  return timestamps;
 }
 
 async function parseResponse(response) {
@@ -73,10 +123,29 @@ async function direct(payload) {
   const config = await settings();
   if (!config.directOAuthToken) throw new Error("Заполните OAuth-токен Директа в настройках расширения");
   if (!ALLOWED_DIRECT_METHODS.has(payload.method)) throw new Error("Метод Директа не разрешён расширением");
+  const lock = await forecastLock(payload.sessionId);
+  const forecastTimestamps = payload.method === "CreateNewForecast" ? await reserveForecastSlot() : null;
+  if (["GetForecast", "DeleteForecastReport"].includes(payload.method) && !lock.forecastIds.includes(Number(payload.param))) {
+    throw new Error("Расширение не создавало этот прогноз");
+  }
   const request = { method: payload.method, locale: "ru", token: config.directOAuthToken };
   if (Object.prototype.hasOwnProperty.call(payload, "param")) request.param = payload.param;
   const response = await fetch(DIRECT_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) });
-  return parseResponse(response);
+  const data = await parseResponse(response);
+  if (payload.method === "CreateNewForecast") {
+    forecastTimestamps.push(Date.now());
+    await chrome.storage.local.set({ directForecastTimestamps: forecastTimestamps });
+    lock.forecastIds.push(Number(data.data));
+    lock.expiresAt = Date.now() + FORECAST_LOCK_TTL;
+    await chrome.storage.local.set({ directForecastLock: lock });
+  } else if (payload.method === "GetForecastList") {
+    data.data = (data.data || []).filter(report => lock.forecastIds.includes(Number(report.ForecastID)));
+  } else if (payload.method === "DeleteForecastReport") {
+    lock.forecastIds = lock.forecastIds.filter(id => id !== Number(payload.param));
+    lock.expiresAt = Date.now() + FORECAST_LOCK_TTL;
+    await chrome.storage.local.set({ directForecastLock: lock });
+  }
+  return data;
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -87,11 +156,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return { version: chrome.runtime.getManifest().version, "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
     }
     if (message.action === "OPEN_OPTIONS") { await chrome.runtime.openOptionsPage(); return true; }
+    if (message.action === "DIRECT_FORECAST_BEGIN") return beginForecast();
+    if (message.action === "DIRECT_FORECAST_TOUCH") { await forecastLock(message.payload?.sessionId); return true; }
+    if (message.action === "DIRECT_FORECAST_END") return endForecast(message.payload?.sessionId);
     if (message.action === "WORDSTAT_TOP") return wordstat(message.payload || {});
     if (message.action === "WORDSTAT_REGIONS") return wordstatRegions();
     if (message.action === "DIRECT_REGIONS") return directRegions();
     if (message.action === "DIRECT_CALL") return direct(message.payload || {});
     throw new Error("Неизвестное действие");
-  })().then(data => sendResponse({ ok: true, data })).catch(error => sendResponse({ ok: false, error: error.message }));
+  })().then(data => sendResponse({ ok: true, data })).catch(error => sendResponse({ ok: false, error: error.message, code: error.code, retryAfter: error.retryAfter }));
   return true;
 });

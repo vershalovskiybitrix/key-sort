@@ -13,7 +13,12 @@
     pending.delete(message.id);
     clearTimeout(request.timer);
     if (message.ok) request.resolve(message.data);
-    else request.reject(new Error(message.error || "Расширение вернуло ошибку"));
+    else {
+      const error = new Error(message.error || "Расширение вернуло ошибку");
+      error.code = message.code;
+      error.retryAfter = message.retryAfter;
+      request.reject(error);
+    }
   });
 
   function requestExtension(action, payload = {}, timeout = 45000) {

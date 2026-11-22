@@ -8,7 +8,14 @@ const requests = [];
 const stored = { cloudApiKey: "cloud-secret", folderId: "folder-id", directOAuthToken: "direct-secret" };
 const context = {
   chrome: {
-    storage: { local: { get: async () => stored } },
+    storage: { local: {
+      get: async keys => {
+        if (typeof keys === "string") return { [keys]: stored[keys] };
+        return stored;
+      },
+      set: async values => Object.assign(stored, values),
+      remove: async key => { delete stored[key]; }
+    } },
     runtime: { onMessage: { addListener(callback) { listener = callback; } }, openOptionsPage: async () => {}, getManifest: () => ({ version: "1.1.0" }) }
   },
   fetch: async (url, options) => {
@@ -28,7 +35,8 @@ const context = {
   Object,
   Boolean,
   JSON,
-  Map
+  Map,
+  crypto: { randomUUID: () => "forecast-session" }
 };
 vm.createContext(context);
 vm.runInContext(fs.readFileSync("chrome-extension/background.js", "utf8"), context);
@@ -50,9 +58,24 @@ function send(action, payload = {}) {
   assert.strictEqual(requests[0].options.headers.Authorization, "Api-Key cloud-secret");
   assert.deepStrictEqual(JSON.parse(requests[0].options.body), { phrase: "купить диван", numPhrases: 25, folderId: "folder-id", regions: ["213"] });
 
-  const direct = await send("DIRECT_CALL", { method: "GetForecast", param: 77 });
+  const session = await send("DIRECT_FORECAST_BEGIN");
+  const concurrent = await send("DIRECT_FORECAST_BEGIN");
+  assert.strictEqual(concurrent.ok, false);
+  assert.match(concurrent.error, /уже выполняется/);
+  const created = await send("DIRECT_CALL", { method: "CreateNewForecast", param: { Phrases: ["купить диван"] }, sessionId: session.data.sessionId });
+  assert.strictEqual(created.ok, true);
+  const foreignForecast = await send("DIRECT_CALL", { method: "GetForecast", param: 88, sessionId: session.data.sessionId });
+  assert.strictEqual(foreignForecast.ok, false);
+  assert.match(foreignForecast.error, /не создавало/);
+  const direct = await send("DIRECT_CALL", { method: "GetForecast", param: 77, sessionId: session.data.sessionId });
   assert.strictEqual(direct.ok, true);
-  assert.deepStrictEqual(JSON.parse(requests[1].options.body), { method: "GetForecast", locale: "ru", token: "direct-secret", param: 77 });
+  assert.deepStrictEqual(JSON.parse(requests[2].options.body), { method: "GetForecast", locale: "ru", token: "direct-secret", param: 77 });
+  stored.directForecastTimestamps = Array(30).fill(Date.now());
+  const limited = await send("DIRECT_CALL", { method: "CreateNewForecast", param: { Phrases: ["ещё фраза"] }, sessionId: session.data.sessionId });
+  assert.strictEqual(limited.ok, false);
+  assert.strictEqual(limited.code, "FORECAST_RATE_LIMIT");
+  assert.ok(limited.retryAfter > 0);
+  delete stored.directForecastTimestamps;
 
   const wordstatRegions = await send("WORDSTAT_REGIONS");
   assert.strictEqual(wordstatRegions.data.regions[0].label, "Россия");
