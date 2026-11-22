@@ -94,7 +94,7 @@
 
   function cleanPhrase(original) {
     const reasons = [];
-    let phrase = original.replace(/[^\p{Script=Latin}\p{Script=Cyrillic}\p{N}\s+\-!\[\]"()|.]/gu, "");
+    let phrase = original.replace(/[^A-Za-zÇĞİÖŞÜçğıöşüА-Яа-яЁёІіЇїЄєҐґЎўӘәҒғҚқҢңӨөҰұҮүҺһ0-9\s+\-!\[\]"()|.']/gu, "");
     phrase = phrase.replace(/\./g, (character, index, value) => /\d/u.test(value[index - 1] || "") && /\d/u.test(value[index + 1] || "") ? character : "");
     if (phrase !== original) reasons.push("удалены недопустимые символы");
     phrase = phrase.replace(/\s+/gu, " ").trim();
