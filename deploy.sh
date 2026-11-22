@@ -37,7 +37,7 @@ chmod 0644 \
   assets/text-format.js \
   assets/subtract.js \
   assets/multiplier.js \
-  assets/favicon.svg \
+  assets/favicon.ico \
   assets/vcg-logo.png \
   assets/fonts/RobotoMono.ttf \
   assets/fonts/SourceCodePro.ttf \
