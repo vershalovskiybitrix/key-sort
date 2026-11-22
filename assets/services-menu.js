@@ -24,6 +24,7 @@
   applySavedFontSetting();
 
   const services = [
+    ["Главная", "/", false],
     ["Парсинг ключей", "keyword-parser.html"],
     ["Прогноз бюджета", "budget-forecast.html"],
     ["Форматирование текста", "text-format.html"],
@@ -44,12 +45,14 @@
     panel.id = panelId;
     panel.className = "services-menu-panel";
     panel.hidden = true;
-    services.forEach(([label, href]) => {
+    services.forEach(([label, href, openInNewTab = true]) => {
       const link = document.createElement("a");
       link.className = "services-menu-link";
       link.href = href;
-      link.target = "_blank";
-      link.rel = "noopener";
+      if (openInNewTab) {
+        link.target = "_blank";
+        link.rel = "noopener";
+      }
       link.textContent = label;
       panel.append(link);
     });
