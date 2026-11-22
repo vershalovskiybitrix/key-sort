@@ -7,13 +7,21 @@
   "permissions": ["storage"],
   "host_permissions": [
     "https://searchapi.api.cloud.yandex.net/*",
-    "https://api.direct.yandex.ru/*"
+    "https://api.direct.yandex.ru/*",
+    "https://oauth.yandex.ru/verification_code*"
   ],
   "background": { "service_worker": "background.js" },
   "options_page": "options.html",
-  "content_scripts": [{
-    "matches": ["https://key-sort.vershalovskiy.com/*"],
-    "js": ["content.js"],
-    "run_at": "document_start"
-  }]
+  "content_scripts": [
+    {
+      "matches": ["https://key-sort.vershalovskiy.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://oauth.yandex.ru/verification_code*"],
+      "js": ["oauth-callback.js"],
+      "run_at": "document_end"
+    }
+  ]
 }
