@@ -97,6 +97,7 @@
     const tree = document.createElement("div");
     const included = new Set();
     const excluded = new Set();
+    const expanded = new Set();
     let regions = [];
 
     button.type = "button";
@@ -184,16 +185,18 @@
           row.className = "region-tree-row";
           row.style.setProperty("--region-depth", depth);
           children.className = "region-tree-level";
-          children.hidden = !needle;
+          children.hidden = !needle && !expanded.has(node.id);
 
           if (hasChildren) {
             const toggle = document.createElement("button");
             toggle.type = "button";
             toggle.className = "region-tree-toggle";
-            toggle.textContent = needle ? "−" : "+";
+            toggle.textContent = children.hidden ? "+" : "−";
             toggle.setAttribute("aria-label", `Раскрыть ${node.name}`);
             toggle.addEventListener("click", () => {
               children.hidden = !children.hidden;
+              if (children.hidden) expanded.delete(node.id);
+              else expanded.add(node.id);
               toggle.textContent = children.hidden ? "+" : "−";
             });
             row.append(toggle);
