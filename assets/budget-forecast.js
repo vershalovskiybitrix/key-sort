@@ -9,6 +9,7 @@
   const regionsRoot = document.getElementById("forecastRegions");
   let exportedRows = [];
   let lastResult = null;
+  let lastWarnings = [];
   let saveTimer = null;
   let databasePromise = null;
   api.bindExtensionState(["OAuth-токен Директа"]);
@@ -81,13 +82,58 @@
       phrases: phrasesInput.value,
       currency: currencySelect.value,
       regions: regionPicker.signedValue(),
-      result: lastResult
+      result: lastResult,
+      warnings: lastWarnings
     };
   }
 
   function scheduleSave() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => databasePut(savedState()).catch(() => {}), 300);
+  }
+
+  function cleanPhrase(original) {
+    const reasons = [];
+    let phrase = original.replace(/[^\p{Script=Latin}\p{Script=Cyrillic}\p{N}\s+\-!\[\]"()|.]/gu, "");
+    phrase = phrase.replace(/\./g, (character, index, value) => /\d/u.test(value[index - 1] || "") && /\d/u.test(value[index + 1] || "") ? character : "");
+    if (phrase !== original) reasons.push("удалены недопустимые символы");
+    phrase = phrase.replace(/\s+/gu, " ").trim();
+    const words = [...phrase.matchAll(/[\p{L}\p{N}]+/gu)];
+    if (words.length > 7) {
+      phrase = phrase.slice(0, words[6].index + words[6][0].length).trim();
+      phrase = phrase.replace(/[+\-!\[\]"()|]+$/gu, "").trim();
+      reasons.push("оставлены первые 7 слов");
+    }
+    return { original, phrase, reasons };
+  }
+
+  function preparePhrases(value) {
+    const regular = [];
+    const corrected = [];
+    const warnings = [];
+    for (const original of api.lines(value)) {
+      const item = cleanPhrase(original);
+      if (!item.phrase) {
+        warnings.push({ ...item, reasons: [...item.reasons, "после очистки фраза стала пустой и не отправлена"] });
+      } else if (item.reasons.length) {
+        corrected.push(item.phrase);
+        warnings.push(item);
+      } else {
+        regular.push(item.phrase);
+      }
+    }
+    return { phrases: [...regular, ...corrected], warnings };
+  }
+
+  function resultStatus(count, warnings) {
+    if (!warnings.length) return `Прогноз готов. Фраз: ${count}.`;
+    const details = warnings.map(item => `«${item.original}» → ${item.phrase ? `«${item.phrase}»` : "не отправлена"} — ${item.reasons.join(", ")}`);
+    return `Прогноз готов. Фраз: ${count}. С ошибками были обработаны:\n${details.join("\n")}`;
+  }
+
+  function emptyPhrasesStatus(warnings) {
+    const details = warnings.map(item => `«${item.original}» — ${item.reasons.join(", ")}`);
+    return `После очистки не осталось фраз для отправки.${details.length ? `\n${details.join("\n")}` : ""}`;
   }
 
   copyButton.addEventListener("click", async () => {
@@ -169,6 +215,7 @@
 
   function clearResult() {
     lastResult = null;
+    lastWarnings = [];
     exportedRows = [];
     copyButton.disabled = true;
     csvButton.disabled = true;
@@ -202,15 +249,20 @@
     if ([...currencySelect.options].some(option => option.value === state.currency)) currencySelect.value = state.currency;
     await regionPicker.ready;
     regionPicker.setSignedValue(Array.isArray(state.regions) ? state.regions : []);
-    if (state.result?.Phrases && state.result?.Common) render(state.result);
+    lastWarnings = Array.isArray(state.warnings) ? state.warnings : [];
+    if (state.result?.Phrases && state.result?.Common) {
+      render(state.result);
+      api.setStatus(status, resultStatus(state.result.Phrases.length, lastWarnings), lastWarnings.length > 0);
+    }
   }
 
   restore().catch(() => {});
 
   document.getElementById("forecastForm").addEventListener("submit", async event => {
     event.preventDefault();
-    const phrases = api.lines(document.getElementById("forecastPhrases").value);
-    if (!phrases.length) return api.setStatus(status, "Добавьте хотя бы одну фразу.", true);
+    const prepared = preparePhrases(phrasesInput.value);
+    const phrases = prepared.phrases;
+    if (!phrases.length) return api.setStatus(status, prepared.warnings.length ? emptyPhrasesStatus(prepared.warnings) : "Добавьте хотя бы одну фразу.", true);
     const geo = regionPicker.signedValue().map(Number).filter(Number.isFinite);
     api.setStatus(status, "Создание прогноза…");
     let sessionId = null;
@@ -244,8 +296,9 @@
           await wait(5000);
         }
       }
+      lastWarnings = prepared.warnings;
       render(combined);
-      api.setStatus(status, `Прогноз готов. Фраз: ${combined.Phrases.length}.`);
+      api.setStatus(status, resultStatus(combined.Phrases.length, lastWarnings), lastWarnings.length > 0);
     } catch (error) {
       api.setStatus(status, error.message, true);
     } finally {
