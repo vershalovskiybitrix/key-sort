@@ -32,6 +32,7 @@ chmod 0644 \
   assets/services-menu.js \
   assets/region-select.js \
   assets/regions.json \
+  assets/keyword-parser-core.js \
   assets/keyword-parser.js \
   assets/budget-forecast.js \
   assets/text-format.js \
