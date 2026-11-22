@@ -56,7 +56,7 @@
 .region-tree-toggle, .region-tree-spacer { flex: 0 0 28px; width: 28px; border: 0; padding: 0; background: transparent; color: #000; font: 700 15px/1 var(--font-body); }
 .region-tree-toggle { cursor: pointer; }
 .region-tree-select { display: flex; flex: 1 1 auto; align-items: center; gap: 7px; min-width: 0; padding: 5px 8px 5px 0; background: transparent; color: #000; font: 13px/1.25 var(--font-body); cursor: pointer; }
-.region-picker-all input, .region-tree-select input { flex: 0 0 auto; margin: 0; accent-color: #000; }
+.service-field .region-picker-all input, .service-field .region-tree-select input { flex: 0 0 16px; width: 16px; height: 16px; margin: 0; border: 0; padding: 0; background: transparent; accent-color: #000; }
 .region-picker-all:hover, .region-tree-toggle:hover, .region-tree-toggle:focus-visible, .region-tree-select:hover { background: #000; color: #fff; outline: 0; }
 @media (max-width: 780px) {
   .service-page main { width: calc(100% - 26px); }
