@@ -1,5 +1,28 @@
 (() => {
   "use strict";
+
+  function applySavedFontSetting() {
+    const request = indexedDB.open("key-sort", 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains("projects")) request.result.createObjectStore("projects");
+    };
+    request.onsuccess = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains("projects")) {
+        database.close();
+        return;
+      }
+      const stateRequest = database.transaction("projects", "readonly").objectStore("projects").get("current");
+      stateRequest.onsuccess = () => {
+        document.documentElement.classList.toggle("legacy-fonts", stateRequest.result?.settings?.siteFonts === false);
+        database.close();
+      };
+      stateRequest.onerror = () => database.close();
+    };
+  }
+
+  applySavedFontSetting();
+
   const services = [
     ["Парсинг ключей", "keyword-parser.html"],
     ["Прогноз бюджета", "budget-forecast.html"],
