@@ -19,11 +19,12 @@
     api.setStatus(status, "Запрос отправлен…");
     document.getElementById("parserResults").textContent = "";
     try {
-      const region = regionPicker.value();
+      const regions = regionPicker.positiveValue();
+      if (regions.length > 100) throw new Error("Выбор с исключениями разворачивается более чем в 100 регионов. Wordstat API принимает не больше 100.");
       const data = await api.requestExtension("WORDSTAT_TOP", {
         phrase: document.getElementById("parserQuery").value.trim(),
         numPhrases: Number(document.getElementById("parserLimit").value),
-        regions: region ? [region] : []
+        regions
       });
       document.getElementById("parserTotal").textContent = `Общая частотность: ${Number(data.totalCount || 0).toLocaleString("ru-RU")}`;
       const body = document.getElementById("parserResults");

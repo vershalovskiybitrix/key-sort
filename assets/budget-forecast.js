@@ -45,8 +45,7 @@
     event.preventDefault();
     const phrases = api.lines(document.getElementById("forecastPhrases").value);
     if (!phrases.length) return api.setStatus(status, "Добавьте хотя бы одну фразу.", true);
-    const region = Number(regionPicker.value());
-    const geo = Number.isFinite(region) && region > 0 ? [region] : [];
+    const geo = regionPicker.signedValue().map(Number).filter(Number.isFinite);
     api.setStatus(status, "Создание прогноза…");
     try {
       const combined = { Phrases: [], Common: { Shows: 0, Clicks: 0, FirstPlaceClicks: 0, PremiumClicks: 0, Geo: "" } };

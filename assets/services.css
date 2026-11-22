@@ -49,14 +49,15 @@
 .region-picker-panel { position: absolute; z-index: 50; top: calc(100% + 6px); left: 0; width: min(430px, calc(100vw - 40px)); padding: 10px; border: 1px solid #888; background: #e9e9e8; box-shadow: 1ch 1ch 0 rgba(0, 0, 0, 0.5); }
 .region-picker-panel[hidden] { display: none !important; }
 .region-picker-search { width: 100%; height: 30px; border: 1px solid #888; border-radius: 0; padding: 0 8px; background: #fff; color: #000; font: 13px/1.2 var(--font-body); }
-.region-picker-all { width: 100%; min-height: 30px; margin-top: 8px; border: 0; border-bottom: 1px solid #aaa; padding: 5px 6px; background: transparent; color: #000; font: 700 13px/1.2 var(--font-body); text-align: left; cursor: pointer; }
+.region-picker-all { display: flex; align-items: center; gap: 7px; width: 100%; min-height: 30px; margin-top: 8px; border-bottom: 1px solid #aaa; padding: 5px 6px; background: transparent; color: #000; font: 700 13px/1.2 var(--font-body); cursor: pointer; }
 .region-picker-tree { max-height: 360px; overflow: auto; background: #fff; }
 .region-tree-level { margin: 0; padding: 0; list-style: none; }
 .region-tree-row { display: flex; align-items: stretch; min-height: 28px; padding-left: calc(var(--region-depth) * 18px); border-bottom: 1px solid #e1e1df; }
 .region-tree-toggle, .region-tree-spacer { flex: 0 0 28px; width: 28px; border: 0; padding: 0; background: transparent; color: #000; font: 700 15px/1 var(--font-body); }
 .region-tree-toggle { cursor: pointer; }
-.region-tree-select { flex: 1 1 auto; min-width: 0; border: 0; padding: 5px 8px 5px 0; background: transparent; color: #000; font: 13px/1.25 var(--font-body); text-align: left; cursor: pointer; }
-.region-picker-all:hover, .region-picker-all:focus-visible, .region-tree-toggle:hover, .region-tree-toggle:focus-visible, .region-tree-select:hover, .region-tree-select:focus-visible { background: #000; color: #fff; outline: 0; }
+.region-tree-select { display: flex; flex: 1 1 auto; align-items: center; gap: 7px; min-width: 0; padding: 5px 8px 5px 0; background: transparent; color: #000; font: 13px/1.25 var(--font-body); cursor: pointer; }
+.region-picker-all input, .region-tree-select input { flex: 0 0 auto; margin: 0; accent-color: #000; }
+.region-picker-all:hover, .region-tree-toggle:hover, .region-tree-toggle:focus-visible, .region-tree-select:hover { background: #000; color: #fff; outline: 0; }
 @media (max-width: 780px) {
   .service-page main { width: calc(100% - 26px); }
   .service-topbar { align-items: flex-start; flex-direction: column; }

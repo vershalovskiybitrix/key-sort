@@ -1,11 +1,12 @@
 (() => {
   "use strict";
-  function normalizeWordstat(nodes) {
-    return (nodes || []).map(node => ({
-      id: String(node.id ?? ""),
-      name: String(node.name || node.label || ""),
-      children: normalizeWordstat(node.children)
-    })).filter(node => node.id && node.name);
+
+  function normalizeWordstat(nodes, parent = null) {
+    return (nodes || []).map(source => {
+      const node = { id: String(source.id ?? ""), name: String(source.name || source.label || ""), parent, children: [] };
+      node.children = normalizeWordstat(source.children, node);
+      return node;
+    }).filter(node => node.id && node.name);
   }
 
   function normalizeDirect(items) {
@@ -14,12 +15,12 @@
       for (const item of items || []) {
         const id = String(item.id ?? "");
         const name = String(item.name || "");
-        if (id && name) nodes.set(id, { id, name, parentId: item.parentId == null ? "" : String(item.parentId), children: [] });
+        if (id && name) nodes.set(id, { id, name, parentId: item.parentId == null ? "" : String(item.parentId), parent: null, children: [] });
       }
       const roots = [];
       for (const node of nodes.values()) {
         const parent = nodes.get(node.parentId);
-        if (parent && parent !== node) parent.children.push(node);
+        if (parent && parent !== node) { node.parent = parent; parent.children.push(node); }
         else roots.push(node);
       }
       return roots;
@@ -32,15 +33,14 @@
       let path = "";
       for (const part of parts) {
         path = path ? `${path} → ${part}` : part;
-        if (!nodes.has(path)) nodes.set(path, { id: "", name: part, children: [] });
+        if (!nodes.has(path)) nodes.set(path, { id: "", name: part, parent: null, children: [] });
         const node = nodes.get(path);
-        if (parent && !parent.children.includes(node)) parent.children.push(node);
+        if (parent && !parent.children.includes(node)) { node.parent = parent; parent.children.push(node); }
         parent = node;
       }
       if (parent) parent.id = String(item.id ?? "");
     }
-    const childNodes = new Set([...nodes.values()].flatMap(node => node.children));
-    return [...nodes.values()].filter(node => !childNodes.has(node));
+    return [...nodes.values()].filter(node => !node.parent);
   }
 
   function sortTree(nodes) {
@@ -49,19 +49,59 @@
     return nodes;
   }
 
+  function flatten(nodes) {
+    const result = [];
+    const visit = node => { result.push(node); node.children.forEach(visit); };
+    nodes.forEach(visit);
+    return result;
+  }
+
+  function hasAncestorIn(node, ids) {
+    for (let parent = node.parent; parent; parent = parent.parent) if (ids.has(parent.id)) return true;
+    return false;
+  }
+
+  function hasDescendantIn(node, ids) {
+    return node.children.some(child => ids.has(child.id) || hasDescendantIn(child, ids));
+  }
+
+  function compileSignedRegions(nodes, included, excluded) {
+    const byId = new Map(flatten(nodes).map(node => [node.id, node]));
+    const positive = [...included].filter(id => byId.has(id) && !hasAncestorIn(byId.get(id), included));
+    const negative = [...excluded].filter(id => byId.has(id) && hasAncestorIn(byId.get(id), included) && !hasAncestorIn(byId.get(id), excluded));
+    return [...positive, ...negative.map(id => `-${id}`)];
+  }
+
+  function compilePositiveRegions(nodes, included, excluded) {
+    const byId = new Map(flatten(nodes).map(node => [node.id, node]));
+    const result = [];
+    const expand = node => {
+      if (excluded.has(node.id) || hasAncestorIn(node, excluded)) return;
+      if (!hasDescendantIn(node, excluded)) { result.push(node.id); return; }
+      node.children.forEach(expand);
+    };
+    for (const id of included) {
+      const node = byId.get(id);
+      if (node && !hasAncestorIn(node, included)) expand(node);
+    }
+    return [...new Set(result)];
+  }
+
   function bindRegionTree(root) {
     const button = document.createElement("button");
     const panel = document.createElement("div");
     const search = document.createElement("input");
-    const allButton = document.createElement("button");
+    const allRow = document.createElement("label");
+    const allCheckbox = document.createElement("input");
+    const allText = document.createElement("span");
     const tree = document.createElement("div");
-    let selectedId = "";
-    let selectedName = "Все регионы";
+    const included = new Set();
+    const excluded = new Set();
     let regions = [];
 
     button.type = "button";
     button.className = "region-picker-button";
-    button.textContent = selectedName;
+    button.textContent = "Все регионы";
     button.setAttribute("aria-haspopup", "tree");
     button.setAttribute("aria-expanded", "false");
     panel.className = "region-picker-panel";
@@ -69,20 +109,57 @@
     search.type = "search";
     search.className = "region-picker-search";
     search.placeholder = "Поиск региона";
-    allButton.type = "button";
-    allButton.className = "region-picker-all";
-    allButton.textContent = "Все регионы";
+    allRow.className = "region-picker-all";
+    allCheckbox.type = "checkbox";
+    allCheckbox.checked = true;
+    allText.textContent = "Все регионы";
+    allRow.append(allCheckbox, allText);
     tree.className = "region-picker-tree";
     tree.setAttribute("role", "tree");
-    panel.append(search, allButton, tree);
+    panel.append(search, allRow, tree);
     root.replaceChildren(button, panel);
 
-    function choose(id, name) {
-      selectedId = id;
-      selectedName = name;
-      button.textContent = name;
-      panel.hidden = true;
-      button.setAttribute("aria-expanded", "false");
+    function clearDescendants(node) {
+      for (const child of node.children) {
+        included.delete(child.id);
+        excluded.delete(child.id);
+        clearDescendants(child);
+      }
+    }
+
+    function isExcluded(node) {
+      return excluded.has(node.id) || hasAncestorIn(node, excluded);
+    }
+
+    function isIncluded(node) {
+      return !isExcluded(node) && (included.has(node.id) || hasAncestorIn(node, included));
+    }
+
+    function updateSummary() {
+      allCheckbox.checked = included.size === 0;
+      if (!included.size) button.textContent = "Все регионы";
+      else if (!excluded.size && included.size === 1) {
+        const selected = flatten(regions).find(node => included.has(node.id));
+        button.textContent = selected ? selected.name : "Выбран 1 регион";
+      } else button.textContent = `Выбрано: ${included.size}; исключено: ${excluded.size}`;
+    }
+
+    function toggleNode(node) {
+      if (included.has(node.id)) {
+        included.delete(node.id);
+        clearDescendants(node);
+      } else if (excluded.has(node.id)) {
+        excluded.delete(node.id);
+      } else if (isIncluded(node)) {
+        excluded.add(node.id);
+        clearDescendants(node);
+      } else {
+        included.add(node.id);
+        excluded.delete(node.id);
+        clearDescendants(node);
+      }
+      render(search.value);
+      updateSummary();
     }
 
     function nodeMatches(node, query) {
@@ -126,15 +203,17 @@
             row.append(spacer);
           }
 
-          const select = document.createElement("button");
-          select.type = "button";
-          select.className = "region-tree-select";
-          select.textContent = node.name;
-          select.setAttribute("role", "treeitem");
-          select.setAttribute("aria-selected", String(node.id === selectedId));
-          select.disabled = !node.id;
-          if (node.id) select.addEventListener("click", () => choose(node.id, node.name));
-          row.append(select);
+          const label = document.createElement("label");
+          const checkbox = document.createElement("input");
+          const text = document.createElement("span");
+          label.className = "region-tree-select";
+          checkbox.type = "checkbox";
+          checkbox.checked = isIncluded(node);
+          checkbox.indeterminate = !checkbox.checked && hasDescendantIn(node, included);
+          checkbox.addEventListener("change", () => toggleNode(node));
+          text.textContent = node.name;
+          label.append(checkbox, text);
+          row.append(label);
           item.append(row);
           if (hasChildren) { appendNodes(node.children, children, depth + 1); item.append(children); }
           parent.append(item);
@@ -143,7 +222,12 @@
       appendNodes(regions, list, 0);
     }
 
-    allButton.addEventListener("click", () => choose("", "Все регионы"));
+    allCheckbox.addEventListener("change", () => {
+      included.clear();
+      excluded.clear();
+      render(search.value);
+      updateSummary();
+    });
     search.addEventListener("input", () => render(search.value));
     button.addEventListener("click", event => {
       event.stopPropagation();
@@ -168,15 +252,20 @@
       if (!regions.length) throw new Error("Яндекс вернул пустой список регионов");
       render();
       button.disabled = false;
-      button.textContent = selectedName;
+      updateSummary();
     }).catch(error => {
       button.disabled = true;
       button.textContent = "Регионы не загружены";
       button.title = error.message;
       throw error;
     });
-    return { ready, value: () => selectedId };
+
+    return {
+      ready,
+      signedValue: () => compileSignedRegions(regions, included, excluded),
+      positiveValue: () => compilePositiveRegions(regions, included, excluded)
+    };
   }
 
-  window.KeySortRegions = { bindRegionTree, normalizeWordstat, normalizeDirect };
+  window.KeySortRegions = { bindRegionTree, normalizeWordstat, normalizeDirect, compileSignedRegions, compilePositiveRegions };
 })();

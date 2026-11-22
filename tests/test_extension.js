@@ -72,5 +72,17 @@ function send(action, payload = {}) {
   assert.strictEqual(directTree[0].children[0].id, "213");
   const oldDirectTree = regionsContext.window.KeySortRegions.normalizeDirect([{ id: 225, label: "Россия" }, { id: 213, label: "Россия → Москва" }]);
   assert.strictEqual(oldDirectTree[0].children[0].id, "213");
+  const selectionTree = regionsContext.window.KeySortRegions.normalizeWordstat([
+    { id: "225", label: "Россия", children: [{ id: "213", label: "Москва" }, { id: "1", label: "Область" }] },
+    { id: "111", label: "Европа" }
+  ]);
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(regionsContext.window.KeySortRegions.compileSignedRegions(selectionTree, new Set(["225", "111"]), new Set(["213"])))),
+    ["225", "111", "-213"]
+  );
+  assert.deepStrictEqual(
+    JSON.parse(JSON.stringify(regionsContext.window.KeySortRegions.compilePositiveRegions(selectionTree, new Set(["225", "111"]), new Set(["213"])))),
+    ["1", "111"]
+  );
   console.log("extension tests passed");
 })().catch(error => { console.error(error); process.exitCode = 1; });
