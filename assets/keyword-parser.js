@@ -5,7 +5,8 @@
   const status = document.getElementById("parserStatus");
   let rows = [];
   api.bindExtensionState(["API-ключ Yandex Cloud", "ID каталога"]);
-  window.KeySortRegions.bindRegionSelect(document.getElementById("parserRegions"), "WORDSTAT_REGIONS").catch(error => api.setStatus(status, `Не удалось загрузить регионы: ${error.message}`, true));
+  const regionPicker = window.KeySortRegions.bindRegionTree(document.getElementById("parserRegions"), "WORDSTAT_REGIONS");
+  regionPicker.ready.catch(error => api.setStatus(status, `Не удалось загрузить регионы: ${error.message}`, true));
 
   document.getElementById("parserCopy").addEventListener("click", async () => {
     if (!rows.length) return;
@@ -18,7 +19,7 @@
     api.setStatus(status, "Запрос отправлен…");
     document.getElementById("parserResults").textContent = "";
     try {
-      const region = document.getElementById("parserRegions").value;
+      const region = regionPicker.value();
       const data = await api.requestExtension("WORDSTAT_TOP", {
         phrase: document.getElementById("parserQuery").value.trim(),
         numPhrases: Number(document.getElementById("parserLimit").value),

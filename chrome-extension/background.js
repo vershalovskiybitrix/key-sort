@@ -59,14 +59,14 @@ async function directRegions() {
   });
   const data = await parseResponse(response);
   const items = data.result?.GeoRegions || [];
-  const byId = new Map(items.map(item => [Number(item.GeoRegionId), item]));
-  const labelFor = item => {
-    const labels = [item.GeoRegionName];
-    let parent = byId.get(Number(item.ParentId));
-    while (parent && labels.length < 4) { labels.unshift(parent.GeoRegionName); parent = byId.get(Number(parent.ParentId)); }
-    return labels.join(" → ");
+  return {
+    regions: items.map(item => ({
+      id: item.GeoRegionId,
+      name: item.GeoRegionName,
+      parentId: item.ParentId,
+      type: item.GeoRegionType
+    }))
   };
-  return { regions: items.map(item => ({ id: item.GeoRegionId, label: labelFor(item) })) };
 }
 
 async function direct(payload) {

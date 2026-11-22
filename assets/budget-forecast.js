@@ -3,7 +3,8 @@
   const api = window.KeySortServices;
   const status = document.getElementById("forecastStatus");
   api.bindExtensionState(["OAuth-токен Директа"]);
-  window.KeySortRegions.bindRegionSelect(document.getElementById("forecastRegions"), "DIRECT_REGIONS").catch(error => api.setStatus(status, `Не удалось загрузить регионы: ${error.message}`, true));
+  const regionPicker = window.KeySortRegions.bindRegionTree(document.getElementById("forecastRegions"), "DIRECT_REGIONS");
+  regionPicker.ready.catch(error => api.setStatus(status, `Не удалось загрузить регионы: ${error.message}`, true));
 
   const wait = delay => new Promise(resolve => setTimeout(resolve, delay));
   const number = value => Number(value || 0).toLocaleString("ru-RU", { maximumFractionDigits: 2 });
@@ -44,7 +45,7 @@
     event.preventDefault();
     const phrases = api.lines(document.getElementById("forecastPhrases").value);
     if (!phrases.length) return api.setStatus(status, "Добавьте хотя бы одну фразу.", true);
-    const region = Number(document.getElementById("forecastRegions").value);
+    const region = Number(regionPicker.value());
     const geo = Number.isFinite(region) && region > 0 ? [region] : [];
     api.setStatus(status, "Создание прогноза…");
     try {

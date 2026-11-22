@@ -52,7 +52,7 @@
     settings.addEventListener("click", () => requestExtension("OPEN_OPTIONS").catch(() => {}));
     try {
       const state = await requestExtension("STATUS", {}, 1500);
-      if (!state.version || state.version.split(".").map(Number).join("").padEnd(3, "0") < "111") {
+      if (!state.version || state.version.split(".").map(Number).join("").padEnd(3, "0") < "120") {
         openExtensionInstall(label);
         return;
       }

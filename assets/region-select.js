@@ -2,37 +2,159 @@
   "use strict";
   const api = window.KeySortServices;
 
-  function flattenTree(nodes, path = [], result = []) {
-    for (const node of nodes || []) {
-      const label = node.label || node.name || "";
-      const current = [...path, label].filter(Boolean);
-      result.push({ id: String(node.id), label: current.join(" → ") });
-      flattenTree(node.children, current, result);
-    }
-    return result;
+  function normalizeWordstat(nodes) {
+    return (nodes || []).map(node => ({
+      id: String(node.id ?? ""),
+      name: String(node.name || node.label || ""),
+      children: normalizeWordstat(node.children)
+    })).filter(node => node.id && node.name);
   }
 
-  async function bindRegionSelect(select, action) {
-    select.disabled = true;
-    try {
-      const data = await api.requestExtension(action, {}, 30000);
-      const regions = action === "WORDSTAT_REGIONS"
-        ? flattenTree(data.regions)
-        : (data.regions || []).map(region => ({ id: String(region.id), label: region.label }));
-      const seen = new Set();
-      regions.sort((a, b) => a.label.localeCompare(b.label, "ru")).forEach(region => {
-        const key = `${region.id}:${region.label}`;
-        if (!region.id || !region.label || seen.has(key)) return;
-        seen.add(key);
-        const option = document.createElement("option");
-        option.value = region.id;
-        option.textContent = region.label;
-        select.append(option);
-      });
-    } finally {
-      select.disabled = false;
+  function normalizeDirect(items) {
+    const nodes = new Map();
+    for (const item of items || []) {
+      const id = String(item.id ?? "");
+      const name = String(item.name || "");
+      if (id && name) nodes.set(id, { id, name, parentId: item.parentId == null ? "" : String(item.parentId), children: [] });
     }
+    const roots = [];
+    for (const node of nodes.values()) {
+      const parent = nodes.get(node.parentId);
+      if (parent && parent !== node) parent.children.push(node);
+      else roots.push(node);
+    }
+    return roots;
   }
 
-  window.KeySortRegions = { bindRegionSelect };
+  function sortTree(nodes) {
+    nodes.sort((a, b) => a.name.localeCompare(b.name, "ru"));
+    nodes.forEach(node => sortTree(node.children));
+    return nodes;
+  }
+
+  function bindRegionTree(root, action) {
+    const button = document.createElement("button");
+    const panel = document.createElement("div");
+    const search = document.createElement("input");
+    const allButton = document.createElement("button");
+    const tree = document.createElement("div");
+    let selectedId = "";
+    let selectedName = "Все регионы";
+    let regions = [];
+
+    button.type = "button";
+    button.className = "region-picker-button";
+    button.textContent = selectedName;
+    button.setAttribute("aria-haspopup", "tree");
+    button.setAttribute("aria-expanded", "false");
+    panel.className = "region-picker-panel";
+    panel.hidden = true;
+    search.type = "search";
+    search.className = "region-picker-search";
+    search.placeholder = "Поиск региона";
+    allButton.type = "button";
+    allButton.className = "region-picker-all";
+    allButton.textContent = "Все регионы";
+    tree.className = "region-picker-tree";
+    tree.setAttribute("role", "tree");
+    panel.append(search, allButton, tree);
+    root.replaceChildren(button, panel);
+
+    function choose(id, name) {
+      selectedId = id;
+      selectedName = name;
+      button.textContent = name;
+      panel.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+    }
+
+    function nodeMatches(node, query) {
+      return node.name.toLocaleLowerCase("ru-RU").includes(query) || node.children.some(child => nodeMatches(child, query));
+    }
+
+    function render(query = "") {
+      const needle = query.trim().toLocaleLowerCase("ru-RU");
+      tree.textContent = "";
+      const list = document.createElement("ul");
+      list.className = "region-tree-level";
+      tree.append(list);
+
+      function appendNodes(nodes, parent, depth) {
+        for (const node of nodes) {
+          if (needle && !nodeMatches(node, needle)) continue;
+          const item = document.createElement("li");
+          const row = document.createElement("div");
+          const children = document.createElement("ul");
+          const hasChildren = node.children.length > 0;
+          item.className = "region-tree-item";
+          row.className = "region-tree-row";
+          row.style.setProperty("--region-depth", depth);
+          children.className = "region-tree-level";
+          children.hidden = !needle;
+
+          if (hasChildren) {
+            const toggle = document.createElement("button");
+            toggle.type = "button";
+            toggle.className = "region-tree-toggle";
+            toggle.textContent = needle ? "−" : "+";
+            toggle.setAttribute("aria-label", `Раскрыть ${node.name}`);
+            toggle.addEventListener("click", () => {
+              children.hidden = !children.hidden;
+              toggle.textContent = children.hidden ? "+" : "−";
+            });
+            row.append(toggle);
+          } else {
+            const spacer = document.createElement("span");
+            spacer.className = "region-tree-spacer";
+            row.append(spacer);
+          }
+
+          const select = document.createElement("button");
+          select.type = "button";
+          select.className = "region-tree-select";
+          select.textContent = node.name;
+          select.setAttribute("role", "treeitem");
+          select.setAttribute("aria-selected", String(node.id === selectedId));
+          select.addEventListener("click", () => choose(node.id, node.name));
+          row.append(select);
+          item.append(row);
+          if (hasChildren) { appendNodes(node.children, children, depth + 1); item.append(children); }
+          parent.append(item);
+        }
+      }
+      appendNodes(regions, list, 0);
+    }
+
+    allButton.addEventListener("click", () => choose("", "Все регионы"));
+    search.addEventListener("input", () => render(search.value));
+    button.addEventListener("click", event => {
+      event.stopPropagation();
+      panel.hidden = !panel.hidden;
+      button.setAttribute("aria-expanded", String(!panel.hidden));
+      if (!panel.hidden) search.focus();
+    });
+    document.addEventListener("click", event => {
+      if (!root.contains(event.target)) { panel.hidden = true; button.setAttribute("aria-expanded", "false"); }
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && !panel.hidden) { panel.hidden = true; button.setAttribute("aria-expanded", "false"); button.focus(); }
+    });
+
+    button.disabled = true;
+    button.textContent = "Загрузка регионов…";
+    const ready = api.requestExtension(action, {}, 30000).then(data => {
+      regions = sortTree(action === "WORDSTAT_REGIONS" ? normalizeWordstat(data.regions) : normalizeDirect(data.regions));
+      if (!regions.length) throw new Error("Яндекс вернул пустой список регионов");
+      render();
+      button.disabled = false;
+      button.textContent = selectedName;
+    }).catch(error => {
+      button.disabled = true;
+      button.textContent = "Регионы не загружены";
+      throw error;
+    });
+    return { ready, value: () => selectedId };
+  }
+
+  window.KeySortRegions = { bindRegionTree, normalizeWordstat, normalizeDirect };
 })();
