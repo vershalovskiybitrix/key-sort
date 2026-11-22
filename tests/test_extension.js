@@ -70,5 +70,7 @@ function send(action, payload = {}) {
   assert.strictEqual(wordstatTree[0].children[0].name, "Москва");
   const directTree = regionsContext.window.KeySortRegions.normalizeDirect([{ id: 225, name: "Россия", parentId: null }, { id: 213, name: "Москва", parentId: 225 }]);
   assert.strictEqual(directTree[0].children[0].id, "213");
+  const oldDirectTree = regionsContext.window.KeySortRegions.normalizeDirect([{ id: 225, label: "Россия" }, { id: 213, label: "Россия → Москва" }]);
+  assert.strictEqual(oldDirectTree[0].children[0].id, "213");
   console.log("extension tests passed");
 })().catch(error => { console.error(error); process.exitCode = 1; });

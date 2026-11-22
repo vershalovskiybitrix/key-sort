@@ -11,19 +11,38 @@
   }
 
   function normalizeDirect(items) {
+    if ((items || []).some(item => item.name)) {
+      const nodes = new Map();
+      for (const item of items || []) {
+        const id = String(item.id ?? "");
+        const name = String(item.name || "");
+        if (id && name) nodes.set(id, { id, name, parentId: item.parentId == null ? "" : String(item.parentId), children: [] });
+      }
+      const roots = [];
+      for (const node of nodes.values()) {
+        const parent = nodes.get(node.parentId);
+        if (parent && parent !== node) parent.children.push(node);
+        else roots.push(node);
+      }
+      return roots;
+    }
+
     const nodes = new Map();
     for (const item of items || []) {
-      const id = String(item.id ?? "");
-      const name = String(item.name || "");
-      if (id && name) nodes.set(id, { id, name, parentId: item.parentId == null ? "" : String(item.parentId), children: [] });
+      const parts = String(item.label || "").split(" → ").map(part => part.trim()).filter(Boolean);
+      let parent = null;
+      let path = "";
+      for (const part of parts) {
+        path = path ? `${path} → ${part}` : part;
+        if (!nodes.has(path)) nodes.set(path, { id: "", name: part, children: [] });
+        const node = nodes.get(path);
+        if (parent && !parent.children.includes(node)) parent.children.push(node);
+        parent = node;
+      }
+      if (parent) parent.id = String(item.id ?? "");
     }
-    const roots = [];
-    for (const node of nodes.values()) {
-      const parent = nodes.get(node.parentId);
-      if (parent && parent !== node) parent.children.push(node);
-      else roots.push(node);
-    }
-    return roots;
+    const childNodes = new Set([...nodes.values()].flatMap(node => node.children));
+    return [...nodes.values()].filter(node => !childNodes.has(node));
   }
 
   function sortTree(nodes) {
@@ -115,7 +134,8 @@
           select.textContent = node.name;
           select.setAttribute("role", "treeitem");
           select.setAttribute("aria-selected", String(node.id === selectedId));
-          select.addEventListener("click", () => choose(node.id, node.name));
+          select.disabled = !node.id;
+          if (node.id) select.addEventListener("click", () => choose(node.id, node.name));
           row.append(select);
           item.append(row);
           if (hasChildren) { appendNodes(node.children, children, depth + 1); item.append(children); }
@@ -151,6 +171,7 @@
     }).catch(error => {
       button.disabled = true;
       button.textContent = "Регионы не загружены";
+      button.title = error.message;
       throw error;
     });
     return { ready, value: () => selectedId };
