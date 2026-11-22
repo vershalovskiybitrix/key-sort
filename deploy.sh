@@ -25,7 +25,6 @@ chmod 0644 \
   subtract.html \
   multiplier.html \
   extension-install.html \
-  favicon-options.html \
   assets/app.css \
   assets/app.js \
   assets/services.css \
@@ -37,10 +36,6 @@ chmod 0644 \
   assets/text-format.js \
   assets/subtract.js \
   assets/multiplier.js \
-  assets/favicon-current.svg \
-  assets/favicon-option-1.svg \
-  assets/favicon-option-2.svg \
-  assets/favicon-option-3.svg \
   assets/vcg-logo.png \
   assets/fonts/RobotoMono.ttf \
   assets/fonts/SourceCodePro.ttf \
