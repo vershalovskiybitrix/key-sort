@@ -20,7 +20,7 @@
 .extension-toolbar { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
 .extension-state { display: flex; flex: 0 1 auto; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid #aaa; border-bottom: 1px solid #aaa; margin: 0; font-size: 12px; }
 .extension-state strong { font-family: var(--font-heading); }
-.extension-toolbar .services-menu-root { flex: 0 0 auto; align-self: center; }
+.extension-toolbar .services-menu-root { flex: 0 0 auto; align-self: center; margin-left: auto; }
 .service-page .services-menu-root > .settings-button { border-color: #000; background: #000; color: #fff; }
 .extension-install-steps { margin: 0; padding-left: 24px; font-size: 13px; line-height: 1.7; }
 .template-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
@@ -67,5 +67,5 @@
 @media (max-width: 600px) {
   .service-grid, .service-grid.three { grid-template-columns: minmax(0, 1fr); }
   .extension-toolbar { align-items: stretch; flex-direction: column; }
-  .extension-toolbar .services-menu-root { align-self: flex-start; }
+  .extension-toolbar .services-menu-root { align-self: flex-end; }
 }
