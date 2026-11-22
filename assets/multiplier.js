@@ -3,6 +3,19 @@
   const api = window.KeySortServices;
   ["multiplyA", "multiplyB", "multiplyResult"].forEach(id => api.autoGrow(document.getElementById(id), 20));
 
+  async function copyResult(resultId, statusId) {
+    const result = document.getElementById(resultId);
+    await navigator.clipboard.writeText(result.value);
+    api.setStatus(document.getElementById(statusId), "Результат скопирован.");
+  }
+
+  document.getElementById("multiplyCopy").addEventListener("click", () => {
+    copyResult("multiplyResult", "multiplyStatus").catch(error => api.setStatus(document.getElementById("multiplyStatus"), error.message, true));
+  });
+  document.getElementById("seoCopy").addEventListener("click", () => {
+    copyResult("seoResult", "seoStatus").catch(error => api.setStatus(document.getElementById("seoStatus"), error.message, true));
+  });
+
   document.getElementById("multiplyApply").addEventListener("click", () => {
     const a = api.lines(document.getElementById("multiplyA").value);
     const b = api.lines(document.getElementById("multiplyB").value);

@@ -8,6 +8,10 @@
 .service-field { display: grid; gap: 5px; min-width: 150px; flex: 1 1 180px; font-size: 12px; }
 .service-field.wide { flex-basis: 360px; }
 .service-field input, .service-field select { width: 100%; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 9px; background: #fff; color: #000; font: 13px/1.2 var(--font-body); }
+.service-field-head { display: flex; min-height: 30px; align-items: center; justify-content: space-between; gap: 10px; }
+.service-limit { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; }
+.service-limit input { width: 100px; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 9px; background: #fff; color: #000; font: 13px/1.2 var(--font-body); }
+.result-head { margin: 12px 0 5px; }
 .service-field input:focus, .service-field select:focus { border-color: #000; outline: 2px solid #000; outline-offset: -1px; }
 .service-checks { display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap; }
 .service-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
@@ -38,6 +42,7 @@
 .summary-cell strong { font-size: 18px; font-variant-numeric: tabular-nums; }
 .seo-syntax { font-size: 12px; line-height: 1.55; }
 .seo-syntax code { border: 1px solid #aaa; padding: 1px 4px; }
+.multiplier-simple { align-items: start; }
 .multiplier-simple textarea { min-height: 120px; max-height: 380px; }
 .result-note { margin-top: 8px; font-size: 11px; }
 .region-picker { position: relative; min-width: 260px; }
