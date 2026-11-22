@@ -4,7 +4,13 @@
   const status = document.getElementById("forecastStatus");
   const copyButton = document.getElementById("forecastCopy");
   const csvButton = document.getElementById("forecastCsv");
+  const phrasesInput = document.getElementById("forecastPhrases");
+  const currencySelect = document.getElementById("forecastCurrency");
+  const regionsRoot = document.getElementById("forecastRegions");
   let exportedRows = [];
+  let lastResult = null;
+  let saveTimer = null;
+  let databasePromise = null;
   api.bindExtensionState(["OAuth-токен Директа"]);
   const regionPicker = window.KeySortRegions.bindRegionTree(document.getElementById("forecastRegions"));
   regionPicker.ready.catch(error => api.setStatus(status, `Не удалось загрузить регионы: ${error.message}`, true));
@@ -13,6 +19,76 @@
   const number = value => Number(value || 0).toLocaleString("ru-RU", { maximumFractionDigits: 2 });
   const htmlEscape = value => String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
   const csvEscape = value => `"${String(value).replace(/"/g, '""')}"`;
+
+  function openDatabase() {
+    if (databasePromise) return databasePromise;
+    databasePromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open("key-sort", 1);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains("projects")) request.result.createObjectStore("projects");
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    return databasePromise;
+  }
+
+  async function databaseGet() {
+    const database = await openDatabase();
+    return new Promise((resolve, reject) => {
+      const request = database.transaction("projects", "readonly").objectStore("projects").get("budget-forecast");
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async function databasePut(value) {
+    const database = await openDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction("projects", "readwrite");
+      transaction.objectStore("projects").put(value, "budget-forecast");
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
+  async function databaseDelete() {
+    const database = await openDatabase();
+    return new Promise((resolve, reject) => {
+      const transaction = database.transaction("projects", "readwrite");
+      transaction.objectStore("projects").delete("budget-forecast");
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
+  function expired(savedAt) {
+    const saved = new Date(savedAt);
+    if (!Number.isFinite(saved.getTime())) return true;
+    const expires = new Date(saved);
+    const day = expires.getUTCDate();
+    expires.setUTCDate(1);
+    expires.setUTCMonth(expires.getUTCMonth() + 4);
+    const lastDay = new Date(Date.UTC(expires.getUTCFullYear(), expires.getUTCMonth() + 1, 0)).getUTCDate();
+    expires.setUTCDate(Math.min(day, lastDay));
+    return Date.now() >= expires.getTime();
+  }
+
+  function savedState() {
+    return {
+      version: 1,
+      savedAt: new Date().toISOString(),
+      phrases: phrasesInput.value,
+      currency: currencySelect.value,
+      regions: regionPicker.signedValue(),
+      result: lastResult
+    };
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => databasePut(savedState()).catch(() => {}), 300);
+  }
 
   copyButton.addEventListener("click", async () => {
     const rows = [["Фраза", "Показы"], ...exportedRows];
@@ -67,6 +143,7 @@
   }
 
   function render(data) {
+    lastResult = data;
     const common = data.Common || {};
     document.getElementById("forecastGeo").textContent = `Регион: ${common.Geo || "—"}`;
     const summary = document.querySelectorAll("#forecastSummary strong");
@@ -87,7 +164,48 @@
       });
       body.append(tr);
     }
+    scheduleSave();
   }
+
+  function clearResult() {
+    lastResult = null;
+    exportedRows = [];
+    copyButton.disabled = true;
+    csvButton.disabled = true;
+    document.getElementById("forecastGeo").textContent = "Регион: —";
+    document.querySelectorAll("#forecastSummary strong").forEach(element => { element.textContent = "—"; });
+    document.getElementById("forecastResults").textContent = "";
+  }
+
+  phrasesInput.addEventListener("input", scheduleSave);
+  currencySelect.addEventListener("change", scheduleSave);
+  regionsRoot.addEventListener("change", scheduleSave);
+  document.getElementById("forecastClear").addEventListener("click", async () => {
+    clearTimeout(saveTimer);
+    phrasesInput.value = "";
+    currencySelect.value = "RUB";
+    await regionPicker.ready.catch(() => {});
+    regionPicker.setSignedValue([]);
+    clearResult();
+    api.setStatus(status, "");
+    await databaseDelete().catch(() => {});
+  });
+
+  async function restore() {
+    const state = await databaseGet();
+    if (!state || state.version !== 1) return;
+    if (expired(state.savedAt)) {
+      await databaseDelete();
+      return;
+    }
+    phrasesInput.value = typeof state.phrases === "string" ? state.phrases : "";
+    if ([...currencySelect.options].some(option => option.value === state.currency)) currencySelect.value = state.currency;
+    await regionPicker.ready;
+    regionPicker.setSignedValue(Array.isArray(state.regions) ? state.regions : []);
+    if (state.result?.Phrases && state.result?.Common) render(state.result);
+  }
+
+  restore().catch(() => {});
 
   document.getElementById("forecastForm").addEventListener("submit", async event => {
     event.preventDefault();
@@ -104,32 +222,25 @@
       sessionId = session.sessionId;
       keepAlive = setInterval(() => api.requestExtension("DIRECT_FORECAST_TOUCH", { sessionId }).catch(() => {}), 30000);
       const combined = { Phrases: [], Common: { Shows: 0, Clicks: 0, FirstPlaceClicks: 0, PremiumClicks: 0, Geo: "" } };
-      const runs = [];
-      for (let index = 0; index < phrases.length; index += 1000) runs.push(phrases.slice(index, index + 1000));
-      let completedBatches = 0;
-      const totalBatches = Math.ceil(phrases.length / 100);
-      for (let runIndex = 0; runIndex < runs.length; runIndex += 1) {
-        const batches = [];
-        for (let index = 0; index < runs[runIndex].length; index += 100) batches.push(runs[runIndex].slice(index, index + 100));
-        for (const batch of batches) {
-          completedBatches += 1;
-          api.setStatus(status, `Расчёт пакета ${completedBatches} из ${totalBatches}…`);
-          const created = await createForecast({
-            Phrases: batch,
-            GeoID: geo,
-            Currency: document.getElementById("forecastCurrency").value,
-            AuctionBids: "Yes"
-          }, sessionId);
-          await waitForForecast(created.data, sessionId);
-          const result = await api.requestExtension("DIRECT_CALL", { method: "GetForecast", param: created.data, sessionId });
-          await api.requestExtension("DIRECT_CALL", { method: "DeleteForecastReport", param: created.data, sessionId });
-          combined.Phrases.push(...(result.data?.Phrases || []));
-          const common = result.data?.Common || {};
-          combined.Common.Geo ||= common.Geo || "";
-          ["Shows", "Clicks", "FirstPlaceClicks", "PremiumClicks"].forEach(field => { combined.Common[field] += Number(common[field] || 0); });
-        }
-        if (runIndex < runs.length - 1) {
-          api.setStatus(status, `Часть ${runIndex + 1} из ${runs.length} готова. Пауза 5 секунд…`);
+      const batches = [];
+      for (let index = 0; index < phrases.length; index += 999) batches.push(phrases.slice(index, index + 999));
+      for (let index = 0; index < batches.length; index += 1) {
+        api.setStatus(status, `Расчёт пакета ${index + 1} из ${batches.length}…`);
+        const created = await createForecast({
+          Phrases: batches[index],
+          GeoID: geo,
+          Currency: currencySelect.value,
+          AuctionBids: "Yes"
+        }, sessionId);
+        await waitForForecast(created.data, sessionId);
+        const result = await api.requestExtension("DIRECT_CALL", { method: "GetForecast", param: created.data, sessionId });
+        await api.requestExtension("DIRECT_CALL", { method: "DeleteForecastReport", param: created.data, sessionId });
+        combined.Phrases.push(...(result.data?.Phrases || []));
+        const common = result.data?.Common || {};
+        combined.Common.Geo ||= common.Geo || "";
+        ["Shows", "Clicks", "FirstPlaceClicks", "PremiumClicks"].forEach(field => { combined.Common[field] += Number(common[field] || 0); });
+        if (index < batches.length - 1) {
+          api.setStatus(status, `Пакет ${index + 1} из ${batches.length} готов. Пауза 5 секунд…`);
           await wait(5000);
         }
       }

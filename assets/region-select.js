@@ -266,7 +266,18 @@
     return {
       ready,
       signedValue: () => compileSignedRegions(regions, included, excluded),
-      positiveValue: () => compilePositiveRegions(regions, included, excluded)
+      positiveValue: () => compilePositiveRegions(regions, included, excluded),
+      setSignedValue: values => {
+        included.clear();
+        excluded.clear();
+        for (const value of values || []) {
+          const id = String(value);
+          if (id.startsWith("-")) excluded.add(id.slice(1));
+          else included.add(id);
+        }
+        render(search.value);
+        updateSummary();
+      }
     };
   }
 
