@@ -2,12 +2,44 @@
   "use strict";
   const api = window.KeySortServices;
   const status = document.getElementById("forecastStatus");
+  const copyButton = document.getElementById("forecastCopy");
+  const csvButton = document.getElementById("forecastCsv");
+  let exportedRows = [];
   api.bindExtensionState(["OAuth-токен Директа"]);
   const regionPicker = window.KeySortRegions.bindRegionTree(document.getElementById("forecastRegions"));
   regionPicker.ready.catch(error => api.setStatus(status, `Не удалось загрузить регионы: ${error.message}`, true));
 
   const wait = delay => new Promise(resolve => setTimeout(resolve, delay));
   const number = value => Number(value || 0).toLocaleString("ru-RU", { maximumFractionDigits: 2 });
+  const htmlEscape = value => String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+  const csvEscape = value => `"${String(value).replace(/"/g, '""')}"`;
+
+  copyButton.addEventListener("click", async () => {
+    const rows = [["Фраза", "Показы"], ...exportedRows];
+    const text = rows.map(row => row.join("\t")).join("\n");
+    const html = `<table>${rows.map((row, index) => `<tr>${row.map(value => `<${index ? "td" : "th"}>${htmlEscape(value)}</${index ? "td" : "th"}>`).join("")}</tr>`).join("")}</table>`;
+    try {
+      if (window.ClipboardItem && navigator.clipboard.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "text/plain": new Blob([text], { type: "text/plain" }), "text/html": new Blob([html], { type: "text/html" }) })]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      api.setStatus(status, "Фразы и показы скопированы.");
+    } catch (error) {
+      api.setStatus(status, error.message, true);
+    }
+  });
+
+  csvButton.addEventListener("click", () => {
+    const rows = [["Фраза", "Показы"], ...exportedRows];
+    const csv = `\uFEFF${rows.map(row => row.map(csvEscape).join(";")).join("\r\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "budget-forecast.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  });
 
   async function waitForForecast(id, sessionId) {
     for (let attempt = 0; attempt < 45; attempt += 1) {
@@ -41,6 +73,9 @@
     [common.Shows, common.Clicks, common.FirstPlaceClicks, common.PremiumClicks].forEach((value, index) => { summary[index].textContent = number(value); });
     const body = document.getElementById("forecastResults");
     body.textContent = "";
+    exportedRows = (data.Phrases || []).map(row => [String(row.Phrase ?? ""), String(Number(row.Shows || 0))]);
+    copyButton.disabled = exportedRows.length === 0;
+    csvButton.disabled = exportedRows.length === 0;
     for (const row of data.Phrases || []) {
       const bids = (row.AuctionBids || []).map(item => `${item.Position}: ${number(item.Bid)} / ${number(item.Price)}`).join("; ");
       const values = [row.Phrase, row.Shows, row.Clicks, row.CTR, row.FirstPlaceClicks, row.FirstPlaceCTR, row.PremiumClicks, row.PremiumCTR, row.Min, row.Max, row.PremiumMin, row.PremiumMax, bids || "—"];
