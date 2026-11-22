@@ -1,7 +1,5 @@
 (() => {
   "use strict";
-  const api = window.KeySortServices;
-
   function normalizeWordstat(nodes) {
     return (nodes || []).map(node => ({
       id: String(node.id ?? ""),
@@ -51,7 +49,7 @@
     return nodes;
   }
 
-  function bindRegionTree(root, action) {
+  function bindRegionTree(root) {
     const button = document.createElement("button");
     const panel = document.createElement("div");
     const search = document.createElement("input");
@@ -162,8 +160,11 @@
 
     button.disabled = true;
     button.textContent = "Загрузка регионов…";
-    const ready = api.requestExtension(action, {}, 30000).then(data => {
-      regions = sortTree(action === "WORDSTAT_REGIONS" ? normalizeWordstat(data.regions) : normalizeDirect(data.regions));
+    const ready = fetch("assets/regions.json?v=1", { credentials: "same-origin" }).then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    }).then(data => {
+      regions = sortTree(normalizeWordstat(data.regions));
       if (!regions.length) throw new Error("Яндекс вернул пустой список регионов");
       render();
       button.disabled = false;

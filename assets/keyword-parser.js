@@ -5,7 +5,7 @@
   const status = document.getElementById("parserStatus");
   let rows = [];
   api.bindExtensionState(["API-ключ Yandex Cloud", "ID каталога"]);
-  const regionPicker = window.KeySortRegions.bindRegionTree(document.getElementById("parserRegions"), "WORDSTAT_REGIONS");
+  const regionPicker = window.KeySortRegions.bindRegionTree(document.getElementById("parserRegions"));
   regionPicker.ready.catch(error => api.setStatus(status, `Не удалось загрузить регионы: ${error.message}`, true));
 
   document.getElementById("parserCopy").addEventListener("click", async () => {

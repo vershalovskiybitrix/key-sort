@@ -3,7 +3,7 @@
   const api = window.KeySortServices;
   const status = document.getElementById("forecastStatus");
   api.bindExtensionState(["OAuth-токен Директа"]);
-  const regionPicker = window.KeySortRegions.bindRegionTree(document.getElementById("forecastRegions"), "DIRECT_REGIONS");
+  const regionPicker = window.KeySortRegions.bindRegionTree(document.getElementById("forecastRegions"));
   regionPicker.ready.catch(error => api.setStatus(status, `Не удалось загрузить регионы: ${error.message}`, true));
 
   const wait = delay => new Promise(resolve => setTimeout(resolve, delay));
