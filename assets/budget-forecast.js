@@ -223,7 +223,7 @@
       keepAlive = setInterval(() => api.requestExtension("DIRECT_FORECAST_TOUCH", { sessionId }).catch(() => {}), 30000);
       const combined = { Phrases: [], Common: { Shows: 0, Clicks: 0, FirstPlaceClicks: 0, PremiumClicks: 0, Geo: "" } };
       const batches = [];
-      for (let index = 0; index < phrases.length; index += 999) batches.push(phrases.slice(index, index + 999));
+      for (let index = 0; index < phrases.length; index += 100) batches.push(phrases.slice(index, index + 100));
       for (let index = 0; index < batches.length; index += 1) {
         api.setStatus(status, `Расчёт пакета ${index + 1} из ${batches.length}…`);
         const created = await createForecast({
