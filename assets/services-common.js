@@ -33,6 +33,17 @@
     element.classList.toggle("error", error);
   }
 
+  function openExtensionInstall(label) {
+    const installUrl = new URL("extension-install.html", location.href).href;
+    window.open(installUrl, "_blank", "noopener,noreferrer");
+    const link = document.createElement("a");
+    link.href = installUrl;
+    link.target = "_blank";
+    link.rel = "noreferrer noopener";
+    link.textContent = "Открыть страницу установки";
+    label.replaceChildren(document.createTextNode("Расширение не установлено. "), link);
+  }
+
   async function bindExtensionState(required) {
     const root = document.querySelector("[data-extension-state]");
     if (!root) return;
@@ -42,13 +53,13 @@
     try {
       const state = await requestExtension("STATUS", {}, 1500);
       if (!state.version || state.version.split(".").map(Number).join("").padEnd(3, "0") < "111") {
-        location.replace("extension-install.html");
+        openExtensionInstall(label);
         return;
       }
       const missing = required.filter(name => !state[name]);
       label.textContent = missing.length ? `Расширение подключено. Не заполнено: ${missing.join(", ")}.` : "Расширение подключено и настроено.";
     } catch {
-      location.replace("extension-install.html");
+      openExtensionInstall(label);
     }
   }
 
