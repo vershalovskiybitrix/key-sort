@@ -16,7 +16,7 @@ const context = {
       set: async values => Object.assign(stored, values),
       remove: async key => { delete stored[key]; }
     } },
-    runtime: { onMessage: { addListener(callback) { listener = callback; } }, openOptionsPage: async () => {}, getManifest: () => ({ version: "1.0.0" }) }
+    runtime: { onMessage: { addListener(callback) { listener = callback; } }, openOptionsPage: async () => {}, getManifest: () => ({ version: "1.0.1" }) }
   },
   fetch: async (url, options) => {
     requests.push({ url, options });
@@ -50,13 +50,24 @@ function send(action, payload = {}) {
 
 (async () => {
   const status = await send("STATUS");
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(status.data)), { version: "1.0.0", forecastSafety: true, forecastHourlyLimit: 30, forecastDailyLimit: 100, forecastAutoResume: true, "API-ключ Yandex Cloud": true, "ID каталога": true, "OAuth-токен Директа": true });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(status.data)), { version: "1.0.1", wordstatDailyLimit: 500, forecastSafety: true, forecastHourlyLimit: 30, forecastDailyLimit: 100, forecastAutoResume: true, "API-ключ Yandex Cloud": true, "ID каталога": true, "OAuth-токен Директа": true });
   assert.ok(!JSON.stringify(status).includes("cloud-secret"));
 
   const wordstat = await send("WORDSTAT_TOP", { phrase: "купить диван", numPhrases: 25, regions: ["213"] });
   assert.strictEqual(wordstat.ok, true);
+  assert.strictEqual(stored.wordstatTimestamps.length, 1);
   assert.strictEqual(requests[0].options.headers.Authorization, "Api-Key cloud-secret");
   assert.deepStrictEqual(JSON.parse(requests[0].options.body), { phrase: "купить диван", numPhrases: 25, folderId: "folder-id", regions: ["213"] });
+  stored.wordstatDailyLimit = 2;
+  stored.wordstatTimestamps = [Date.now(), Date.now()];
+  const wordstatLimited = await send("WORDSTAT_TOP", { phrase: "купить кресло" });
+  assert.strictEqual(wordstatLimited.ok, false);
+  assert.strictEqual(wordstatLimited.code, "WORDSTAT_DAILY_LIMIT");
+  assert.match(wordstatLimited.error, /настройки расширения/);
+  assert.ok(wordstatLimited.retryAfter > 0);
+  assert.strictEqual(requests.length, 1);
+  delete stored.wordstatDailyLimit;
+  delete stored.wordstatTimestamps;
 
   const session = await send("DIRECT_FORECAST_BEGIN");
   const concurrent = await send("DIRECT_FORECAST_BEGIN");
@@ -118,5 +129,18 @@ function send(action, payload = {}) {
     JSON.parse(JSON.stringify(regionsContext.window.KeySortRegions.compilePositiveRegions(selectionTree, new Set(["225", "111"]), new Set(["213"])))),
     ["1", "111"]
   );
+  stored.wordstatDailyLimit = 10000;
+  const cappedStatus = await send("STATUS");
+  assert.strictEqual(cappedStatus.data.wordstatDailyLimit, 5000);
+  stored.wordstatDailyLimit = 1;
+  stored.wordstatTimestamps = [];
+  const requestCount = requests.length;
+  const parallel = await Promise.all([
+    send("WORDSTAT_TOP", { phrase: "первый запрос" }),
+    send("WORDSTAT_TOP", { phrase: "второй запрос" })
+  ]);
+  assert.strictEqual(parallel.filter(result => result.ok).length, 1);
+  assert.strictEqual(parallel.filter(result => result.code === "WORDSTAT_DAILY_LIMIT").length, 1);
+  assert.strictEqual(requests.length, requestCount + 1);
   console.log("extension tests passed");
 })().catch(error => { console.error(error); process.exitCode = 1; });

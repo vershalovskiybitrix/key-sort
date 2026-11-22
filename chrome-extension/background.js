@@ -6,18 +6,45 @@ const WORDSTAT_REGIONS_URL = "https://searchapi.api.cloud.yandex.net/v2/wordstat
 const DIRECT_URL = "https://api.direct.yandex.ru/live/v4/json/";
 const DIRECT_DICTIONARIES_URL = "https://api.direct.yandex.ru/json/v5/dictionaries";
 const ALLOWED_DIRECT_METHODS = new Set(["CreateNewForecast", "GetForecastList", "GetForecast", "DeleteForecastReport"]);
+const WORDSTAT_DEFAULT_DAILY_LIMIT = 500;
+const WORDSTAT_MAX_DAILY_LIMIT = 5000;
 const FORECAST_DEFAULTS = { hourly: 30, daily: 100, autoResume: true };
 const FORECAST_MAXIMUMS = { hourly: 300, daily: 1000 };
 const FORECAST_LOCK_TTL = 2 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
+let wordstatReservationChain = Promise.resolve();
 
 function pageRequest(sender) {
   return Boolean(sender.tab?.url?.startsWith(SITE));
 }
 
 async function settings() {
-  return chrome.storage.local.get(["cloudApiKey", "folderId", "directOAuthToken", "forecastHourlyLimit", "forecastDailyLimit", "forecastAutoResume"]);
+  return chrome.storage.local.get(["cloudApiKey", "folderId", "directOAuthToken", "wordstatDailyLimit", "forecastHourlyLimit", "forecastDailyLimit", "forecastAutoResume"]);
+}
+
+function wordstatDailyLimit(value) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? Math.max(1, Math.min(WORDSTAT_MAX_DAILY_LIMIT, parsed)) : WORDSTAT_DEFAULT_DAILY_LIMIT;
+}
+
+function reserveWordstatSlot() {
+  const reservation = wordstatReservationChain.then(async () => {
+    const now = Date.now();
+    const stored = await chrome.storage.local.get(["wordstatTimestamps", "wordstatDailyLimit"]);
+    const limit = wordstatDailyLimit(stored.wordstatDailyLimit);
+    const timestamps = (stored.wordstatTimestamps || []).filter(timestamp => timestamp > now - DAY).sort((a, b) => a - b);
+    if (timestamps.length >= limit) {
+      const error = new Error("Превышен суточный лимит запросов Wordstat. Загляните в настройки расширения.");
+      error.code = "WORDSTAT_DAILY_LIMIT";
+      error.retryAfter = timestamps[0] + DAY - now;
+      throw error;
+    }
+    timestamps.push(now);
+    await chrome.storage.local.set({ wordstatTimestamps: timestamps });
+  });
+  wordstatReservationChain = reservation.catch(() => {});
+  return reservation;
 }
 
 function forecastSettings(config) {
@@ -98,6 +125,7 @@ async function wordstat(payload) {
   const numPhrases = Math.max(1, Math.min(2000, Number(payload.numPhrases) || 2000));
   const body = { phrase, numPhrases, folderId: config.folderId };
   if (Array.isArray(payload.regions) && payload.regions.length) body.regions = payload.regions.map(String).slice(0, 50);
+  await reserveWordstatSlot();
   const response = await fetch(WORDSTAT_URL, {
     method: "POST",
     headers: { "Authorization": `Api-Key ${config.cloudApiKey}`, "Content-Type": "application/json" },
@@ -172,7 +200,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "STATUS") {
       const config = await settings();
       const limits = forecastSettings(config);
-      return { version: chrome.runtime.getManifest().version, forecastSafety: true, forecastHourlyLimit: limits.hourly, forecastDailyLimit: limits.daily, forecastAutoResume: limits.autoResume, "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
+      return { version: chrome.runtime.getManifest().version, wordstatDailyLimit: wordstatDailyLimit(config.wordstatDailyLimit), forecastSafety: true, forecastHourlyLimit: limits.hourly, forecastDailyLimit: limits.daily, forecastAutoResume: limits.autoResume, "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
     }
     if (message.action === "OPEN_OPTIONS") { await chrome.runtime.openOptionsPage(); return true; }
     if (message.action === "DIRECT_FORECAST_BEGIN") return beginForecast();

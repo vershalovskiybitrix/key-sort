@@ -2,10 +2,12 @@
 const YANDEX_OAUTH_CLIENT_ID = "110b2abc47ec4422893a89a100d00586";
 const YANDEX_OAUTH_REDIRECT = "https://oauth.yandex.ru/verification_code";
 const fields = ["cloudApiKey", "folderId", "directOAuthToken"];
+const wordstatDefaultDailyLimit = 500;
 const forecastDefaults = { forecastHourlyLimit: 30, forecastDailyLimit: 100, forecastAutoResume: true };
 const forecastFields = Object.keys(forecastDefaults);
-chrome.storage.local.get([...fields, ...forecastFields]).then(values => {
+chrome.storage.local.get([...fields, "wordstatDailyLimit", ...forecastFields]).then(values => {
   fields.forEach(id => { document.getElementById(id).value = values[id] || ""; });
+  document.getElementById("wordstatDailyLimit").value = values.wordstatDailyLimit ?? wordstatDefaultDailyLimit;
   document.getElementById("forecastHourlyLimit").value = values.forecastHourlyLimit ?? forecastDefaults.forecastHourlyLimit;
   document.getElementById("forecastDailyLimit").value = values.forecastDailyLimit ?? forecastDefaults.forecastDailyLimit;
   document.getElementById("forecastAutoResume").checked = values.forecastAutoResume !== false;
@@ -37,6 +39,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 document.getElementById("save").addEventListener("click", async () => {
   const values = Object.fromEntries(fields.map(id => [id, document.getElementById(id).value.trim()]));
+  values.wordstatDailyLimit = Math.max(1, Math.min(5000, Number.parseInt(document.getElementById("wordstatDailyLimit").value, 10) || wordstatDefaultDailyLimit));
   values.forecastHourlyLimit = Math.max(1, Math.min(300, Number.parseInt(document.getElementById("forecastHourlyLimit").value, 10) || forecastDefaults.forecastHourlyLimit));
   values.forecastDailyLimit = Math.max(1, Math.min(1000, Number.parseInt(document.getElementById("forecastDailyLimit").value, 10) || forecastDefaults.forecastDailyLimit));
   values.forecastAutoResume = document.getElementById("forecastAutoResume").checked;
