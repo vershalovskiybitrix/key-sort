@@ -6,8 +6,8 @@ const WORDSTAT_REGIONS_URL = "https://searchapi.api.cloud.yandex.net/v2/wordstat
 const DIRECT_URL = "https://api.direct.yandex.ru/live/v4/json/";
 const DIRECT_DICTIONARIES_URL = "https://api.direct.yandex.ru/json/v5/dictionaries";
 const ALLOWED_DIRECT_METHODS = new Set(["CreateNewForecast", "GetForecastList", "GetForecast", "DeleteForecastReport"]);
-const FORECAST_HOURLY_LIMIT = 30;
-const FORECAST_DAILY_LIMIT = 100;
+const FORECAST_DEFAULTS = { hourly: 30, daily: 100, autoResume: true };
+const FORECAST_MAXIMUMS = { hourly: 300, daily: 1000 };
 const FORECAST_LOCK_TTL = 2 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -17,13 +17,30 @@ function pageRequest(sender) {
 }
 
 async function settings() {
-  return chrome.storage.local.get(["cloudApiKey", "folderId", "directOAuthToken"]);
+  return chrome.storage.local.get(["cloudApiKey", "folderId", "directOAuthToken", "forecastHourlyLimit", "forecastDailyLimit", "forecastAutoResume"]);
+}
+
+function forecastSettings(config) {
+  const integer = (value, fallback, maximum) => {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) ? Math.max(1, Math.min(maximum, parsed)) : fallback;
+  };
+  return {
+    hourly: integer(config.forecastHourlyLimit, FORECAST_DEFAULTS.hourly, FORECAST_MAXIMUMS.hourly),
+    daily: integer(config.forecastDailyLimit, FORECAST_DEFAULTS.daily, FORECAST_MAXIMUMS.daily),
+    autoResume: config.forecastAutoResume !== false
+  };
 }
 
 async function beginForecast() {
   const now = Date.now();
   const { directForecastLock } = await chrome.storage.local.get("directForecastLock");
-  if (directForecastLock?.expiresAt > now) throw new Error("Другой расчёт прогноза уже выполняется");
+  if (directForecastLock?.expiresAt > now) {
+    const error = new Error("Другой расчёт прогноза уже выполняется");
+    error.code = "FORECAST_SESSION_BUSY";
+    error.retryAfter = directForecastLock.expiresAt - now;
+    throw error;
+  }
   const lock = { id: crypto.randomUUID(), expiresAt: now + FORECAST_LOCK_TTL, forecastIds: [] };
   await chrome.storage.local.set({ directForecastLock: lock });
   return { sessionId: lock.id };
@@ -49,12 +66,13 @@ async function endForecast(sessionId) {
 
 async function reserveForecastSlot() {
   const now = Date.now();
-  const stored = await chrome.storage.local.get("directForecastTimestamps");
+  const stored = await chrome.storage.local.get(["directForecastTimestamps", "forecastHourlyLimit", "forecastDailyLimit"]);
+  const limits = forecastSettings(stored);
   const timestamps = (stored.directForecastTimestamps || []).filter(timestamp => timestamp > now - DAY).sort((a, b) => a - b);
   const hourly = timestamps.filter(timestamp => timestamp > now - HOUR);
   const retryAt = Math.max(
-    hourly.length >= FORECAST_HOURLY_LIMIT ? hourly[0] + HOUR : 0,
-    timestamps.length >= FORECAST_DAILY_LIMIT ? timestamps[0] + DAY : 0
+    hourly.length >= limits.hourly ? hourly[0] + HOUR : 0,
+    timestamps.length >= limits.daily ? timestamps[0] + DAY : 0
   );
   if (retryAt > now) {
     const error = new Error("Достигнут лимит прогнозов. Расчёт продолжится автоматически");
@@ -153,7 +171,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     if (message.action === "STATUS") {
       const config = await settings();
-      return { version: chrome.runtime.getManifest().version, forecastSafety: true, "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
+      const limits = forecastSettings(config);
+      return { version: chrome.runtime.getManifest().version, forecastSafety: true, forecastHourlyLimit: limits.hourly, forecastDailyLimit: limits.daily, forecastAutoResume: limits.autoResume, "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
     }
     if (message.action === "OPEN_OPTIONS") { await chrome.runtime.openOptionsPage(); return true; }
     if (message.action === "DIRECT_FORECAST_BEGIN") return beginForecast();

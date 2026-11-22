@@ -10,6 +10,9 @@
   let exportedRows = [];
   let lastResult = null;
   let lastWarnings = [];
+  let activeJob = null;
+  let runGeneration = 0;
+  let running = false;
   let saveTimer = null;
   let databasePromise = null;
   api.bindExtensionState(["OAuth-токен Директа"]);
@@ -83,13 +86,26 @@
       currency: currencySelect.value,
       regions: regionPicker.signedValue(),
       result: lastResult,
-      warnings: lastWarnings
+      warnings: lastWarnings,
+      job: activeJob
     };
   }
 
   function scheduleSave() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => databasePut(savedState()).catch(() => {}), 300);
+  }
+
+  function current(generation) {
+    if (generation !== runGeneration) throw Object.assign(new Error("Расчёт остановлен"), { code: "CALCULATION_CANCELLED" });
+  }
+
+  async function pause(delay, generation) {
+    const until = Date.now() + delay;
+    while (Date.now() < until) {
+      current(generation);
+      await wait(Math.min(1000, until - Date.now()));
+    }
   }
 
   function cleanPhrase(original) {
@@ -163,19 +179,20 @@
     URL.revokeObjectURL(url);
   });
 
-  async function waitForForecast(id, sessionId) {
+  async function waitForForecast(id, sessionId, generation) {
     for (let attempt = 0; attempt < 45; attempt += 1) {
+      current(generation);
       const reports = await api.requestExtension("DIRECT_CALL", { method: "GetForecastList", sessionId });
       const report = (reports.data || []).find(item => Number(item.ForecastID) === Number(id));
       if (report?.StatusForecast === "Done") return;
       if (report?.StatusForecast === "Failed") throw new Error("Яндекс не смог сформировать прогноз");
       api.setStatus(status, "Яндекс формирует прогноз…");
-      await wait(2000);
+      await pause(2000, generation);
     }
     throw new Error("Прогноз не сформирован за 90 секунд");
   }
 
-  async function createForecast(param, sessionId) {
+  async function createForecast(param, sessionId, generation) {
     while (true) {
       try {
         return await api.requestExtension("DIRECT_CALL", { method: "CreateNewForecast", param, sessionId });
@@ -183,7 +200,7 @@
         if (error.code !== "FORECAST_RATE_LIMIT" || !Number.isFinite(Number(error.retryAfter))) throw error;
         const delay = Math.max(1000, Number(error.retryAfter));
         api.setStatus(status, `Лимит запросов. Продолжение через ${Math.ceil(delay / 60000)} мин.…`);
-        await wait(delay);
+        await pause(delay, generation);
       }
     }
   }
@@ -224,10 +241,79 @@
     document.getElementById("forecastResults").textContent = "";
   }
 
+  function appendResult(combined, data) {
+    combined.Phrases.push(...(data?.Phrases || []));
+    const common = data?.Common || {};
+    combined.Common.Geo ||= common.Geo || "";
+    ["Shows", "Clicks", "FirstPlaceClicks", "PremiumClicks"].forEach(field => { combined.Common[field] += Number(common[field] || 0); });
+  }
+
+  async function beginSession(generation) {
+    while (true) {
+      current(generation);
+      try {
+        return await api.requestExtension("DIRECT_FORECAST_BEGIN");
+      } catch (error) {
+        if (error.code !== "FORECAST_SESSION_BUSY" || !Number.isFinite(Number(error.retryAfter))) throw error;
+        const delay = Math.max(1000, Number(error.retryAfter));
+        api.setStatus(status, `Предыдущий сеанс ещё завершается. Продолжение через ${Math.ceil(delay / 1000)} сек.…`);
+        await pause(delay, generation);
+      }
+    }
+  }
+
+  async function runJob(job) {
+    if (running) return;
+    running = true;
+    const generation = ++runGeneration;
+    let sessionId = null;
+    let keepAlive = null;
+    try {
+      const extensionState = await api.requestExtension("STATUS");
+      if (!extensionState.forecastSafety) throw new Error("Расширение устарело. Обновите его на странице установки и перезагрузите в Chrome");
+      const session = await beginSession(generation);
+      sessionId = session.sessionId;
+      keepAlive = setInterval(() => api.requestExtension("DIRECT_FORECAST_TOUCH", { sessionId }).catch(() => {}), 30000);
+      const batchCount = Math.ceil(job.phrases.length / 100);
+      while (job.nextIndex < job.phrases.length) {
+        current(generation);
+        const batchNumber = Math.floor(job.nextIndex / 100) + 1;
+        const batch = job.phrases.slice(job.nextIndex, job.nextIndex + 100);
+        api.setStatus(status, `Расчёт пакета ${batchNumber} из ${batchCount}…`);
+        const created = await createForecast({ Phrases: batch, GeoID: job.geo, Currency: job.currency, AuctionBids: "Yes" }, sessionId, generation);
+        await waitForForecast(created.data, sessionId, generation);
+        const result = await api.requestExtension("DIRECT_CALL", { method: "GetForecast", param: created.data, sessionId });
+        await api.requestExtension("DIRECT_CALL", { method: "DeleteForecastReport", param: created.data, sessionId });
+        appendResult(job.result, result.data);
+        job.nextIndex += batch.length;
+        lastWarnings = job.warnings;
+        render(job.result);
+        await databasePut(savedState());
+        if (job.nextIndex < job.phrases.length) {
+          api.setStatus(status, `Пакет ${batchNumber} из ${batchCount} готов. Пауза 5 секунд…`);
+          await pause(5000, generation);
+        }
+      }
+      activeJob = null;
+      lastResult = job.result;
+      lastWarnings = job.warnings;
+      await databasePut(savedState());
+      api.setStatus(status, resultStatus(lastResult.Phrases.length, lastWarnings), lastWarnings.length > 0);
+    } catch (error) {
+      if (error.code !== "CALCULATION_CANCELLED") api.setStatus(status, error.message, true);
+    } finally {
+      if (keepAlive !== null) clearInterval(keepAlive);
+      if (sessionId) api.requestExtension("DIRECT_FORECAST_END", { sessionId }).catch(() => {});
+      running = false;
+    }
+  }
+
   phrasesInput.addEventListener("input", scheduleSave);
   currencySelect.addEventListener("change", scheduleSave);
   regionsRoot.addEventListener("change", scheduleSave);
   document.getElementById("forecastClear").addEventListener("click", async () => {
+    runGeneration += 1;
+    activeJob = null;
     clearTimeout(saveTimer);
     phrasesInput.value = "";
     currencySelect.value = "RUB";
@@ -250,60 +336,33 @@
     await regionPicker.ready;
     regionPicker.setSignedValue(Array.isArray(state.regions) ? state.regions : []);
     lastWarnings = Array.isArray(state.warnings) ? state.warnings : [];
+    activeJob = state.job && Array.isArray(state.job.phrases) && Number.isInteger(state.job.nextIndex) ? state.job : null;
     if (state.result?.Phrases && state.result?.Common) {
       render(state.result);
       api.setStatus(status, resultStatus(state.result.Phrases.length, lastWarnings), lastWarnings.length > 0);
     }
+    if (activeJob) {
+      const extensionState = await api.requestExtension("STATUS");
+      const done = Math.min(activeJob.nextIndex, activeJob.phrases.length);
+      api.setStatus(status, `Сохранён незавершённый расчёт: ${done} из ${activeJob.phrases.length} фраз.`);
+      if (extensionState.forecastAutoResume) runJob(activeJob);
+    }
   }
 
   restore().catch(() => {});
+  document.getElementById("forecastLimitsSettings").addEventListener("click", () => api.requestExtension("OPEN_OPTIONS").catch(error => api.setStatus(status, error.message, true)));
 
   document.getElementById("forecastForm").addEventListener("submit", async event => {
     event.preventDefault();
+    if (running) return api.setStatus(status, "Расчёт уже выполняется.", true);
     const prepared = preparePhrases(phrasesInput.value);
     const phrases = prepared.phrases;
     if (!phrases.length) return api.setStatus(status, prepared.warnings.length ? emptyPhrasesStatus(prepared.warnings) : "Добавьте хотя бы одну фразу.", true);
     const geo = regionPicker.signedValue().map(Number).filter(Number.isFinite);
+    clearResult();
+    activeJob = { phrases, warnings: prepared.warnings, geo, currency: currencySelect.value, nextIndex: 0, result: { Phrases: [], Common: { Shows: 0, Clicks: 0, FirstPlaceClicks: 0, PremiumClicks: 0, Geo: "" } } };
+    await databasePut(savedState());
     api.setStatus(status, "Создание прогноза…");
-    let sessionId = null;
-    let keepAlive = null;
-    try {
-      const extensionState = await api.requestExtension("STATUS");
-      if (!extensionState.forecastSafety) throw new Error("Расширение устарело. Обновите его на странице установки и перезагрузите в Chrome");
-      const session = await api.requestExtension("DIRECT_FORECAST_BEGIN");
-      sessionId = session.sessionId;
-      keepAlive = setInterval(() => api.requestExtension("DIRECT_FORECAST_TOUCH", { sessionId }).catch(() => {}), 30000);
-      const combined = { Phrases: [], Common: { Shows: 0, Clicks: 0, FirstPlaceClicks: 0, PremiumClicks: 0, Geo: "" } };
-      const batches = [];
-      for (let index = 0; index < phrases.length; index += 100) batches.push(phrases.slice(index, index + 100));
-      for (let index = 0; index < batches.length; index += 1) {
-        api.setStatus(status, `Расчёт пакета ${index + 1} из ${batches.length}…`);
-        const created = await createForecast({
-          Phrases: batches[index],
-          GeoID: geo,
-          Currency: currencySelect.value,
-          AuctionBids: "Yes"
-        }, sessionId);
-        await waitForForecast(created.data, sessionId);
-        const result = await api.requestExtension("DIRECT_CALL", { method: "GetForecast", param: created.data, sessionId });
-        await api.requestExtension("DIRECT_CALL", { method: "DeleteForecastReport", param: created.data, sessionId });
-        combined.Phrases.push(...(result.data?.Phrases || []));
-        const common = result.data?.Common || {};
-        combined.Common.Geo ||= common.Geo || "";
-        ["Shows", "Clicks", "FirstPlaceClicks", "PremiumClicks"].forEach(field => { combined.Common[field] += Number(common[field] || 0); });
-        if (index < batches.length - 1) {
-          api.setStatus(status, `Пакет ${index + 1} из ${batches.length} готов. Пауза 5 секунд…`);
-          await wait(5000);
-        }
-      }
-      lastWarnings = prepared.warnings;
-      render(combined);
-      api.setStatus(status, resultStatus(combined.Phrases.length, lastWarnings), lastWarnings.length > 0);
-    } catch (error) {
-      api.setStatus(status, error.message, true);
-    } finally {
-      if (keepAlive !== null) clearInterval(keepAlive);
-      if (sessionId) api.requestExtension("DIRECT_FORECAST_END", { sessionId }).catch(() => {});
-    }
+    runJob(activeJob);
   });
 })();

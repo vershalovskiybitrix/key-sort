@@ -16,7 +16,7 @@ const context = {
       set: async values => Object.assign(stored, values),
       remove: async key => { delete stored[key]; }
     } },
-    runtime: { onMessage: { addListener(callback) { listener = callback; } }, openOptionsPage: async () => {}, getManifest: () => ({ version: "1.1.0" }) }
+    runtime: { onMessage: { addListener(callback) { listener = callback; } }, openOptionsPage: async () => {}, getManifest: () => ({ version: "1.0.0" }) }
   },
   fetch: async (url, options) => {
     requests.push({ url, options });
@@ -50,7 +50,7 @@ function send(action, payload = {}) {
 
 (async () => {
   const status = await send("STATUS");
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(status.data)), { version: "1.1.0", forecastSafety: true, "API-ключ Yandex Cloud": true, "ID каталога": true, "OAuth-токен Директа": true });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(status.data)), { version: "1.0.0", forecastSafety: true, forecastHourlyLimit: 30, forecastDailyLimit: 100, forecastAutoResume: true, "API-ключ Yandex Cloud": true, "ID каталога": true, "OAuth-токен Директа": true });
   assert.ok(!JSON.stringify(status).includes("cloud-secret"));
 
   const wordstat = await send("WORDSTAT_TOP", { phrase: "купить диван", numPhrases: 25, regions: ["213"] });
@@ -75,6 +75,17 @@ function send(action, payload = {}) {
   assert.strictEqual(limited.ok, false);
   assert.strictEqual(limited.code, "FORECAST_RATE_LIMIT");
   assert.ok(limited.retryAfter > 0);
+  delete stored.directForecastTimestamps;
+  stored.forecastHourlyLimit = 2;
+  stored.forecastDailyLimit = 5;
+  stored.forecastAutoResume = false;
+  const customStatus = await send("STATUS");
+  assert.strictEqual(customStatus.data.forecastHourlyLimit, 2);
+  assert.strictEqual(customStatus.data.forecastDailyLimit, 5);
+  assert.strictEqual(customStatus.data.forecastAutoResume, false);
+  stored.directForecastTimestamps = Array(2).fill(Date.now());
+  const customLimited = await send("DIRECT_CALL", { method: "CreateNewForecast", param: { Phrases: ["лимит"] }, sessionId: session.data.sessionId });
+  assert.strictEqual(customLimited.code, "FORECAST_RATE_LIMIT");
   delete stored.directForecastTimestamps;
 
   const wordstatRegions = await send("WORDSTAT_REGIONS");
