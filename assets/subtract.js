@@ -12,7 +12,7 @@
       if (!response.ok) throw new Error(`Словарь лемм недоступен: HTTP ${response.status}`);
       Object.assign(analyses, (await response.json()).analyses || {});
     }
-    return rows.map(line => words(line).map(word => analyses[word]?.key || `word:${word}`).join("|"));
+    return rows.map(line => words(line).map(word => analyses[word]?.key || `word:${word}`).sort().join("|"));
   }
 
   document.getElementById("subtractApply").addEventListener("click", async () => {
