@@ -19,6 +19,7 @@ cd "$project_dir"
 chmod 0644 \
   app.py \
   index.html \
+  help.html \
   keyword-parser.html \
   budget-forecast.html \
   text-format.html \

@@ -170,19 +170,11 @@ curl -X POST https://key-sort.vershalovskiy.com/api/lemmatize \
 
 ## Обновление
 
-```bash
-cd /opt/vershalovskiy.com/key-sort
-sudo git pull --ff-only
-sudo /opt/vershalovskiy.com/key-sort/.venv/bin/pip install -r requirements.txt
-sudo systemctl restart key-sort.service
-```
+Соберите архив из проверенного коммита GitHub командой `git archive --format=tar.gz -o key-sort-release.tar.gz HEAD`. Передавайте на сервер весь архив одной версии, включая HTML, статические ресурсы и ZIP расширения.
 
-Если менялись nginx-конфигурации:
+На сервере распакуйте архив в отдельный каталог и проверьте, что в нём есть `index.html`, `help.html`, `assets/`, `deploy.sh` и `downloads/key-sort-extension.zip`. Сохраните копию текущей версии и скопируйте файлы релиза в `/opt/vershalovskiy.com/key-sort`. Не заменяйте серверную `.venv` локальным окружением. Рабочий каталог может не содержать `.git`, поэтому `git pull` в нём не является обязательным шагом.
 
-```bash
-sudo nginx -t
-sudo systemctl reload nginx
-```
+Запустите `sudo bash deploy.sh` из рабочего каталога, если менялись Python, зависимости или конфигурация nginx/systemd. Для обновления только страниц и статических ресурсов перезапуск службы не нужен. Проверьте главную, страницы сервисов, архив расширения и `/api/health`. После изменений общего скрипта обновляйте его версию во всех HTML, которые его подключают.
 
 ## Диагностика
 
