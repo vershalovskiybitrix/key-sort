@@ -30,6 +30,7 @@ chmod 0644 \
   extension-install.html \
   assets/app.css \
   assets/app.js \
+  assets/query-text.js \
   assets/services.css \
   assets/services-common.js \
   assets/services-menu.js \

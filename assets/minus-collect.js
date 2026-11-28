@@ -1,11 +1,11 @@
 (() => {
   "use strict";
-  const words = text => text.normalize("NFC").toLowerCase().match(/[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)*/gu) || [];
+  const queryText = typeof module === "object" && module.exports ? require("./query-text.js") : window.KeySortQueryText;
 
   function queryWords(text) {
     return text.split(/\r?\n/u).flatMap(line => {
       if (/^запрос\s*[,;\t]\s*частотность\s*$/iu.test(line.trim())) return [];
-      return words(line.replace(/[,;\t]\s*\d(?:[\d \u00a0\u202f]*\d)?\s*$/u, ""));
+      return queryText.words(queryText.splitFrequency(line).phrase, true);
     });
   }
 
@@ -30,7 +30,7 @@
   const adverbsAndPronouns = new Set([
     "как где куда откуда когда почему зачем какой который чей кто что",
     "я мы ты вы он она оно они мой наш твой ваш свой себя его её ее их",
-    "это этот этого тот такой каждый весь некоторый любой сам самый столько",
+    "это этот этого этом этим тот такой каждый весь некоторый любой другой сам самый столько",
     "так там тут уже"
   ].join(" ").split(" "));
   function visibleRows(rows, options) {

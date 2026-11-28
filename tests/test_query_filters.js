@@ -25,6 +25,7 @@ const createFilter = new Function(
   "frequencyFilterOperator",
   "lengthChecks",
   "getWords",
+  "window",
   `${extractFunction("activeLengths")}
    ${extractFunction("parseQueryLine")}
    ${extractFunction("activeQueryTextFilter")}
@@ -43,7 +44,8 @@ const filter = createFilter(
   frequencyFilterValue,
   frequencyFilterOperator,
   [],
-  text => text.trim().split(/\s+/u).filter(Boolean)
+  text => text.trim().split(/\s+/u).filter(Boolean),
+  { KeySortQueryText: require("../assets/query-text.js") }
 );
 const rows = [
   { id: "1", line: "вопросы психологу\t52 723" },
@@ -73,7 +75,8 @@ const lengthFilter = createFilter(
   { value: "" },
   { value: "gt" },
   [{ checked: true, dataset: { queryLength: "3" } }],
-  text => text.trim().split(/\s+/u).filter(Boolean)
+  text => text.trim().split(/\s+/u).filter(Boolean),
+  { KeySortQueryText: require("../assets/query-text.js") }
 );
 assert.deepEqual(lengthFilter(rows).map(row => row.id), ["3"]);
 

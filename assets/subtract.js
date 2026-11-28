@@ -28,7 +28,7 @@
     }
   }
 
-  function words(line) { return line.toLocaleLowerCase("ru-RU").match(/[\p{L}\p{N}-]+/gu) || []; }
+  function words(line) { return window.KeySortQueryText.words(line, true); }
   async function lemmaKeys(rows, signal) {
     const tokens = [...new Set(rows.flatMap(words))];
     const analyses = {};

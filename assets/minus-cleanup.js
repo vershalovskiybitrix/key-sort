@@ -1,6 +1,7 @@
 (() => {
   "use strict";
-  const words = text => text.toLowerCase().match(/[\p{L}\p{N}]+(?:[.-][\p{L}\p{N}]+)*/gu) || [];
+  const queryText = typeof module === "object" && module.exports ? require("./query-text.js") : window.KeySortQueryText;
+  const words = text => queryText.words(text, true);
 
   function conflicts(phrases, minuses, analyses) {
     const key = word => analyses.get(word)?.key || `word:${word}`;
@@ -51,7 +52,8 @@
   }
 
   async function calculate(signal) {
-    const phrases = api.lines(queries.value);
+    const phrases = api.lines(queries.value).filter(line => !/^запрос\s*[,;\t]\s*частотность$/iu.test(line))
+      .map(line => queryText.splitFrequency(line).phrase);
     const negativeWords = [...new Set(words(minuses.value))];
     if (!phrases.length || !negativeWords.length) return;
     api.setStatus(status, "Проверка словоформ…");

@@ -7,7 +7,8 @@
 
   const clean = value => String(value || "").trim().replace(/\s+/g, " ");
   const chars = value => Array.from(value).length;
-  const words = value => clean(value).toLowerCase().match(/[a-zа-яё0-9]+/giu) || [];
+  const queryText = typeof module === "object" && module.exports ? require("./query-text.js") : window.KeySortQueryText;
+  const words = value => queryText.words(clean(value), true);
   const unique = values => [...new Set(values.map(clean).filter(Boolean))];
 
   function parseRequest(query, minusText) {
