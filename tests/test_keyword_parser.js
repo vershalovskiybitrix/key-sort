@@ -8,7 +8,7 @@ assert.deepEqual(parsed.userMinusWords, ["бесплатно", "онлайн"]);
 
 const automatic = Array.from({ length: 100 }, (_, index) => `слово${index}`);
 const query = core.buildQuery("психолог", ["консультация"], ["бесплатно"], automatic);
-assert.ok(core.chars(query) <= 400);
+assert.ok(core.chars(query) <= 399);
 assert.ok(query.includes(" -бесплатно"));
 
 const lemmaByWord = {};
@@ -20,8 +20,16 @@ for (let index = 0; index < 60; index += 1) {
 }
 lemmaByWord.психолог = { key: "lemma:психолог:NOUN", lemma: "психолог" };
 const ranked = core.rankCandidates(rows, lemmaByWord, new Set(["lemma:психолог:NOUN"]));
-assert.equal(ranked.length, 40);
-assert.equal(new Set(ranked.map(item => item.key)).size, 40);
+assert.equal(ranked.length, 60);
+assert.equal(new Set(ranked.map(item => item.key)).size, 60);
+const short = Array.from({ length: 120 }, (_, n) => ({ key: String(n), lemma: "x" + n }));
+const tasks = core.planLevel([{ pathWords: [], pathKeys: [] }], short, { basePhrase: "base", userMinusWords: ["exclude"] });
+assert.ok(tasks.length > 60);
+assert.ok(tasks.every(task => core.chars(task.query) <= 399 && task.query.includes(" -exclude")));
+const repeated = core.planLevel([
+  { pathWords: ["a"], pathKeys: ["a"] }, { pathWords: ["b"], pathKeys: ["b"] }
+], [{ key: "a", lemma: "a" }, { key: "b", lemma: "b" }], { basePhrase: "base", userMinusWords: [] });
+assert.deepEqual(repeated.map(task => task.query), ["base a b"]);
 
 const full = Array.from({ length: 2000 }, (_, index) => ({ phrase: `фраза ${index}`, count: 11 }));
 assert.equal(core.branchComplete(full), false);

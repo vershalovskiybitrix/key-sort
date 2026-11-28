@@ -111,38 +111,23 @@
   async function createLevelJob() {
     const candidates = await currentCandidates();
     if (!candidates.length) throw new Error("Не найдено слов для следующего уровня.");
-    const tasks = [];
-    const queryKeys = new Set();
-    for (const parent of state.frontier) {
-      const pathKeys = new Set(parent.pathKeys);
-      for (const candidate of candidates) {
-        if (pathKeys.has(candidate.key)) continue;
-        const pathWords = [...parent.pathWords, candidate.lemma];
-        const automaticMinusWords = candidates
-          .filter(item => item.key !== candidate.key && !pathKeys.has(item.key))
-          .map(item => item.lemma);
-        const query = core.buildQuery(
-          state.settings.basePhrase,
-          pathWords,
-          state.settings.userMinusWords,
-          automaticMinusWords
-        );
-        const queryKey = query.toLowerCase();
-        if (queryKeys.has(queryKey)) continue;
-        queryKeys.add(queryKey);
-        tasks.push({ query, pathWords, pathKeys: [...pathKeys, candidate.key] });
-      }
-    }
+    const tasks = core.planLevel(state.frontier, candidates, state.settings);
+    if (!tasks.length) throw new Error("В запросах веток нет места для следующего слова.");
     state.job = { tasks, index: 0, nextFrontier: [] };
   }
 
   async function collectOneLevel() {
     if (!state.job) await createLevelJob();
     const job = state.job;
+    const count = job.tasks.length - job.index;
+    if (!window.confirm(`Уровень ${state.depth + 1}: отправить запросов в Wordstat — ${count}?`)) return false;
     while (job.index < job.tasks.length) {
       const task = job.tasks[job.index];
       api.setStatus(status, `Уровень ${state.depth + 1}: запрос ${job.index + 1} из ${job.tasks.length}. Собрано уникальных фраз: ${state.rows.size}.`);
-      const rows = await requestTop(task.query);
+      const phrase = core.chars(task.query) <= core.QUERY_LIMIT ? task.query : core.buildQuery(
+        state.settings.basePhrase, task.pathWords, state.settings.userMinusWords, core.parseRequest(task.query, "").userMinusWords
+      );
+      const rows = await requestTop(phrase);
       core.mergeRows(state.rows, rows);
       if (!core.branchComplete(rows)) job.nextFrontier.push({ pathWords: task.pathWords, pathKeys: task.pathKeys });
       job.index += 1;
@@ -151,6 +136,7 @@
     state.frontier = job.nextFrontier;
     state.depth += 1;
     state.job = null;
+    return true;
   }
 
   async function collectBase() {
@@ -205,12 +191,14 @@
   });
 
   deeperOneButton.addEventListener("click", () => run(async () => {
-    await collectOneLevel();
+    if (!await collectOneLevel()) return;
     api.setStatus(status, `Уровень собран. Уникальных фраз: ${state.rows.size}. Активных веток: ${state.frontier.length}.`);
   }));
 
   deeperTwoButton.addEventListener("click", () => run(async () => {
-    for (let step = 0; step < 2 && (state.frontier.length || state.job); step += 1) await collectOneLevel();
+    for (let step = 0; step < 2 && (state.frontier.length || state.job); step += 1) {
+      if (!await collectOneLevel()) return;
+    }
     api.setStatus(status, `Сбор завершён. Уникальных фраз: ${state.rows.size}. Активных веток: ${state.frontier.length}.`);
   }));
 

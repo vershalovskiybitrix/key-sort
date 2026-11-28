@@ -21,7 +21,8 @@
     return { basePhrase: clean(positive.join(" ")), userMinusWords: unique(negative) };
   }
 
-  function buildQuery(basePhrase, pathWords, userMinusWords, automaticMinusWords, limit = 400) {
+  const QUERY_LIMIT = 399;
+  function buildQuery(basePhrase, pathWords, userMinusWords, automaticMinusWords, limit = QUERY_LIMIT) {
     const positive = clean([basePhrase, ...pathWords].join(" "));
     if (!positive) throw new Error("Введите запрос.");
     if (chars(positive) > limit) throw new Error(`Положительная часть запроса длиннее ${limit} символов.`);
@@ -68,7 +69,42 @@
       selectedKeys.add(item.key);
       if (selected.length >= count * 2) break;
     }
+    for (let index = 0; index < values.length; index += 1) {
+      for (const item of [byFrequency[index], byPhrases[index]]) {
+        if (selectedKeys.has(item.key)) continue;
+        selectedKeys.add(item.key);
+        selected.push(item);
+      }
+    }
     return selected;
+  }
+
+  function planLevel(frontier, candidates, settings) {
+    const tasks = new Map();
+    for (const parent of frontier) {
+      const base = buildQuery(settings.basePhrase, parent.pathWords, settings.userMinusWords, []);
+      // One candidate is positive in each request and saves one minus character.
+      let remaining = QUERY_LIMIT + 1 - chars(base);
+      const usedKeys = new Set(parent.pathKeys);
+      const usedWords = new Set([...words(settings.basePhrase), ...parent.pathWords, ...settings.userMinusWords]);
+      const pool = [];
+      for (const item of candidates) {
+        const cost = chars(item.lemma) + 2;
+        if (usedKeys.has(item.key) || usedWords.has(item.lemma) || cost > remaining) continue;
+        pool.push(item);
+        usedWords.add(item.lemma);
+        remaining -= cost;
+        if (remaining < 3) break;
+      }
+      for (const candidate of pool) {
+        const pathWords = [...parent.pathWords, candidate.lemma].sort();
+        const minuses = pool.filter(item => item !== candidate).map(item => item.lemma);
+        const query = buildQuery(settings.basePhrase, pathWords, settings.userMinusWords, minuses);
+        const pathKeys = [...usedKeys, candidate.key];
+        if (!tasks.has(query)) tasks.set(query, { query, pathWords, pathKeys });
+      }
+    }
+    return [...tasks.values()];
   }
 
   function mergeRows(target, incoming) {
@@ -88,5 +124,5 @@
     return Math.min(...rows.map(row => Number(row.count || 0))) <= threshold;
   }
 
-  return { chars, words, unique, parseRequest, buildQuery, rankCandidates, mergeRows, branchComplete };
+  return { QUERY_LIMIT, chars, words, unique, parseRequest, buildQuery, rankCandidates, planLevel, mergeRows, branchComplete };
 });
