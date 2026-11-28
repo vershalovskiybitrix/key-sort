@@ -2374,6 +2374,7 @@
     });
     document.addEventListener("keydown", e => {
       // Своя история заменяет браузерную в трёх полях и работает после кликов.
+      if (specialDialog.open) return;
       const mod = (e.ctrlKey || e.metaKey) && !e.altKey && !e.isComposing;
       // Для русской раскладки e.key может быть «я»/«н», а не «z»/«y».
       // Используем физические клавиши KeyZ/KeyY и резервное сравнение символов.
