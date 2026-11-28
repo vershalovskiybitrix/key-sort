@@ -20,5 +20,11 @@ assert.deepEqual(parse("психолог для детей\t47\u202F957"), { phr
 assert.deepEqual(parse("психолог москва,41 800"), { phrase: "психолог москва", frequency: "41800" });
 assert.deepEqual(parse("психологический 2026"), { phrase: "психологический 2026", frequency: "" });
 assert.deepEqual(createParser(false)("вопросы психологу\t52 723"), { phrase: "вопросы психологу\t52 723", frequency: "" });
+const mergeSource = source.slice(source.indexOf("    function mergeQueryDuplicates"), source.indexOf("    function deduplicateQueries"));
+const merge = new Function("parseQueryLine", `${mergeSource}; return mergeQueryDuplicates;`)(parse);
+const merged = merge([{ id: "first", line: "психолог,10" }, { id: "second", line: "психологи,100" }],
+  { second: "group" }, () => "психолог");
+assert.deepEqual(merged.rows, [{ id: "first", line: "психолог\t100" }]);
+assert.equal(merged.assignments.first, "group");
 
 console.log("query parser tests passed");

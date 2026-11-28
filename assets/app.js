@@ -413,8 +413,9 @@
     }
 
     function queryDuplicateKey(line) {
-      const keys = getWords(queryPhrase(line)).map(morphKey).sort();
-      return `${keys.length}:${keys.join("\u0000")}`;
+      const phrase = queryPhrase(line);
+      const keys = getWords(phrase).map(morphKey).sort();
+      return keys.length ? `${keys.length}:${keys.join("\u0000")}` : `text:${normalizedWord(phrase)}`;
     }
     function mergeAutomaticNormalizationIntoHistory(field, previousValue) {
       if (historyIndex >= 0 && history[historyIndex]?.[field] === previousValue) {
@@ -426,20 +427,32 @@
         storeHistory("action", field);
       }
     }
-    function deduplicateQueries(source) {
-      if (queriesInput.value !== source) return;
-      const lines = source.split(/\r?\n/u).map(line => line.trim()).filter(Boolean);
-      const seen = new Set();
-      const unique = [];
-      for (const line of lines) {
-        const key = queryDuplicateKey(line);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        unique.push(line);
+    function mergeQueryDuplicates(rows, assigned, keyFor) {
+      const unique = new Map();
+      const mergedAssignments = Object.create(null);
+      for (const row of rows) {
+        const key = keyFor(row.line);
+        const survivor = unique.get(key) || { ...row };
+        const first = parseQueryLine(survivor.line);
+        const next = parseQueryLine(row.line);
+        if (next.frequency && (!first.frequency || Number(next.frequency) > Number(first.frequency))) {
+          survivor.line = `${first.phrase}\t${next.frequency}`;
+        }
+        const group = mergedAssignments[survivor.id] ?? assigned[row.id];
+        if (group !== undefined) mergedAssignments[survivor.id] = group;
+        unique.set(key, survivor);
       }
-      if (unique.length === lines.length) return;
-      queriesInput.value = unique.join("\n");
-      refreshSourceCache();
+      return { rows: [...unique.values()], assignments: mergedAssignments };
+    }
+    function deduplicateQueries(source, keyFor = queryDuplicateKey) {
+      if (queriesInput.value !== source) return;
+      if (sourceCache.value !== source) refreshSourceCache();
+      const merged = mergeQueryDuplicates(sourceCache.rows, assignments, keyFor);
+      if (merged.rows.length === sourceCache.rows.length) return;
+      queryRows = merged.rows;
+      assignments = merged.assignments;
+      queriesInput.value = queryRows.map(row => row.line).join("\n");
+      sourceCache = { value: queriesInput.value, rows: queryRows };
       recalculate();
       mergeAutomaticNormalizationIntoHistory("queries", source);
     }
@@ -498,6 +511,7 @@
       if (negativeSource !== null) normalizeNegativeWordList(negativeSource.raw, negativeSource.displayed);
     }
     function requestQueryDeduplication() {
+      deduplicateQueries(queriesInput.value, line => normalizedWord(queryPhrase(line)));
       const source = queriesInput.value;
       pendingQueryDeduplication = source;
       queueMorphology(getWords(source.split(/\r?\n/u).map(queryPhrase).join("\n")));
