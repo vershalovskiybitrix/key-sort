@@ -30,6 +30,12 @@ const repeated = core.planLevel([
   { pathWords: ["a"], pathKeys: ["a"] }, { pathWords: ["b"], pathKeys: ["b"] }
 ], [{ key: "a", lemma: "a" }, { key: "b", lemma: "b" }], { basePhrase: "base", userMinusWords: [] });
 assert.deepEqual(repeated.map(task => task.query), ["base a b"]);
+const allRows = new Map();
+const changedRows = new Map();
+core.mergeRows(allRows, [{ phrase: "base one", count: 8 }]);
+core.mergeRows(allRows, [{ phrase: "base one", count: 6 }, { phrase: "base two", count: 9 }], changedRows);
+assert.deepEqual([...changedRows.values()], [{ phrase: "base two", count: 9 }]);
+assert.equal(allRows.get("base one").count, 8);
 
 const full = Array.from({ length: 2000 }, (_, index) => ({ phrase: `фраза ${index}`, count: 11 }));
 assert.equal(core.branchComplete(full), false);

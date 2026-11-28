@@ -1415,8 +1415,14 @@
     };
     const manualGroups = () => groups.filter(group => !group.special);
     let automaticAssignments = new Map();
+    let indexedSpecialGroups;
+    let indexedMorphSize;
+    let indexedMorphAvailable;
+    let specialIndexes = [];
+    const queryWordsCache = new WeakMap();
 
-    function assignSpecialGroups(rows) {
+    function specialGroupIndexes() {
+      if (indexedSpecialGroups === groups && indexedMorphSize === morphCache.size && indexedMorphAvailable === morphAvailable) return specialIndexes;
       const indexes = [];
       for (const type of Object.keys(SPECIAL_GROUPS)) {
         const group = groups.find(item => item.special === type);
@@ -1426,10 +1432,29 @@
         const phrases = new Set(terms.map(words => words.map(morphKey).join("\u0000")));
         indexes.push({ id: group.id, phrases, lengths: [...new Set(terms.map(words => words.length))] });
       }
+      indexedSpecialGroups = groups;
+      indexedMorphSize = morphCache.size;
+      indexedMorphAvailable = morphAvailable;
+      specialIndexes = indexes;
+      return indexes;
+    }
+
+    function wordsForQuery(row) {
+      let words = queryWordsCache.get(row);
+      const phrase = queryPhrase(row.line);
+      if (words?.phrase !== phrase) {
+        words = { phrase, terms: getWords(phrase) };
+        queryWordsCache.set(row, words);
+      }
+      return words.terms;
+    }
+
+    function assignSpecialGroups(rows) {
+      const indexes = specialGroupIndexes();
       automaticAssignments = new Map();
       if (!indexes.length) return;
       for (const row of rows) {
-        const keys = getWords(queryPhrase(row.line)).map(morphKey);
+        const keys = wordsForQuery(row).map(morphKey);
         const match = indexes.find(({ phrases, lengths }) => lengths.some(length => {
           for (let start = 0; start + length <= keys.length; start += 1) {
             if (phrases.has(keys.slice(start, start + length).join("\u0000"))) return true;
@@ -1892,7 +1917,7 @@
       }
       const remaining = [];
       for (const row of rows) {
-        const words = getWords(queryPhrase(row.line));
+        const words = wordsForQuery(row);
         const query = { words };
         let excluded = words.some(w => negativeWordKeys.has(morphKey(w)));
         if (!excluded) excluded = Array.from(negativePhraseCandidates(words, negativePhraseIndex)).some(p => phraseMatches(query, p));

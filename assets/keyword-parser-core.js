@@ -108,14 +108,18 @@
     return [...tasks.values()];
   }
 
-  function mergeRows(target, incoming) {
+  function mergeRows(target, incoming, changed) {
     for (const row of incoming || []) {
       const phrase = clean(row.phrase);
       if (!phrase) continue;
       const key = phrase.toLowerCase();
       const count = Number(row.count || 0);
       const previous = target.get(key);
-      if (!previous || count > previous.count) target.set(key, { phrase, count });
+      if (!previous || count > previous.count) {
+        const item = { phrase, count };
+        target.set(key, item);
+        changed?.set(key, item);
+      }
     }
     return target;
   }

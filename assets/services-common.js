@@ -83,8 +83,9 @@
     resize();
   }
 
-  function pageMemory(key) {
+  function pageMemory(key, chunkedRows = false) {
     let database;
+    const rowsRange = () => IDBKeyRange.bound([key, "rows"], [key, "rows", []]);
     function access(mode, operation) {
       database ||= new Promise((resolve, reject) => {
         const request = indexedDB.open("key-sort", 1);
@@ -102,21 +103,45 @@
       }));
     }
     async function load() {
-      const saved = await access("readonly", store => store.get(key));
-      if (saved?.expires > Date.now()) return saved.value;
+      let saved;
+      let chunks;
+      await access("readonly", store => {
+        const record = store.get(key);
+        record.onsuccess = () => { saved = record.result; };
+        if (chunkedRows) {
+          const records = store.getAll(rowsRange());
+          records.onsuccess = () => { chunks = records.result; };
+        }
+        return record;
+      });
+      if (saved?.expires > Date.now()) {
+        if (chunkedRows && saved.chunk !== undefined) {
+          const rows = new Map();
+          for (const chunk of chunks) for (const [id, row] of chunk) rows.set(id, row);
+          return { ...saved.value, rows, rowChunk: saved.chunk };
+        }
+        return saved.value;
+      }
       if (saved) await clear();
     }
-    function save(value) {
+    function save(value, { reset = false, chunk, rows = [] } = {}) {
       const expires = new Date();
       const day = expires.getUTCDate();
       expires.setUTCDate(1);
       expires.setUTCMonth(expires.getUTCMonth() + 4);
       const lastDay = new Date(Date.UTC(expires.getUTCFullYear(), expires.getUTCMonth() + 1, 0)).getUTCDate();
       expires.setUTCDate(Math.min(day, lastDay));
-      return access("readwrite", store => store.put({ value, expires: expires.getTime() }, key));
+      return access("readwrite", store => {
+        if (chunkedRows && reset) store.delete(rowsRange());
+        if (chunkedRows && rows.length) store.put(rows, [key, "rows", chunk]);
+        return store.put({ value, chunk, expires: expires.getTime() }, key);
+      });
     }
     function clear() {
-      return access("readwrite", store => store.delete(key));
+      return access("readwrite", store => {
+        if (chunkedRows) store.delete(rowsRange());
+        return store.delete(key);
+      });
     }
     return { load, save, clear };
   }

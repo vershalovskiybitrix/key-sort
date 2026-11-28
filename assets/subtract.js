@@ -29,15 +29,15 @@
   }
 
   function words(line) { return window.KeySortQueryText.words(line, true); }
+  const analyses = new Map();
   async function lemmaKeys(rows, signal) {
-    const tokens = [...new Set(rows.flatMap(words))];
-    const analyses = {};
+    const tokens = [...new Set(rows.flatMap(words))].filter(word => !analyses.has(word));
     for (let index = 0; index < tokens.length; index += 1000) {
       const response = await fetch("/api/lemmatize", { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ words: tokens.slice(index, index + 1000) }) });
       if (!response.ok) throw new Error(`Словарь лемм недоступен: HTTP ${response.status}`);
-      Object.assign(analyses, (await response.json()).analyses || {});
+      for (const [word, analysis] of Object.entries((await response.json()).analyses || {})) analyses.set(word, analysis);
     }
-    return rows.map(line => words(line).map(word => analyses[word]?.key || `word:${word}`).sort().join("|"));
+    return rows.map(line => words(line).map(word => analyses.get(word)?.key || `word:${word}`).sort().join("|"));
   }
 
   function invalidate() {

@@ -11,12 +11,17 @@
   const deeperTwoButton = document.getElementById("parserDeeperTwo");
   const DISPLAY_LIMIT = 5000;
   const state = { rows: new Map(), frontier: [], depth: 0, settings: null, running: false, job: null };
-  const memory = api.pageMemory("keyword-parser");
+  const memory = api.pageMemory("keyword-parser", true);
   const queryField = document.getElementById("parserQuery");
   const minusField = document.getElementById("parserMinus");
   const clearButton = document.getElementById("parserClear");
   const regionsRoot = document.getElementById("parserRegions");
   let saveTimer;
+  let dirtyRows = new Map();
+  let rowChunk = 0;
+  let rowGeneration = 0;
+  let resetStoredRows = false;
+  let saving = Promise.resolve();
 
   function reportMemory(error) {
     api.setStatus(status, `Память браузера: ${error.message}`, true);
@@ -25,10 +30,33 @@
   function save() {
     clearTimeout(saveTimer);
     saveTimer = undefined;
-    memory.save({
-      query: queryField.value, minus: minusField.value, regions: regionPicker.signedValue(),
-      rows: state.rows, frontier: state.frontier, depth: state.depth, settings: state.settings, job: state.job
+    const generation = rowGeneration;
+    saving = saving.then(() => {
+      if (generation !== rowGeneration) return;
+      const rows = [...dirtyRows];
+      const reset = resetStoredRows;
+      return memory.save({
+        query: queryField.value, minus: minusField.value, regions: regionPicker.signedValue(),
+        frontier: state.frontier, depth: state.depth, settings: state.settings, job: state.job
+      }, { rows, reset, chunk: rowChunk + 1 }).then(() => {
+        if (generation !== rowGeneration) return;
+        rowChunk += 1;
+        resetStoredRows = false;
+        for (const [key, row] of rows) if (dirtyRows.get(key) === row) dirtyRows.delete(key);
+      });
     }).catch(reportMemory);
+  }
+
+  function addRows(rows) {
+    core.mergeRows(state.rows, rows, dirtyRows);
+  }
+
+  function resetRows() {
+    rowGeneration += 1;
+    rowChunk = 0;
+    dirtyRows = new Map();
+    resetStoredRows = true;
+    state.rows = new Map();
   }
 
   function scheduleSave() {
@@ -71,11 +99,11 @@
     setRunning(state.running);
   }
 
-  async function requestTop(phrase) {
+  async function requestTop(phrase, regions = state.settings.regions) {
     const data = await api.requestExtension("WORDSTAT_TOP", {
       phrase,
       numPhrases: 2000,
-      regions: state.settings.regions
+      regions
     });
     return data.results || [];
   }
@@ -128,7 +156,7 @@
         state.settings.basePhrase, task.pathWords, state.settings.userMinusWords, core.parseRequest(task.query, "").userMinusWords
       );
       const rows = await requestTop(phrase);
-      core.mergeRows(state.rows, rows);
+      addRows(rows);
       if (!core.branchComplete(rows)) job.nextFrontier.push({ pathWords: task.pathWords, pathKeys: task.pathKeys });
       job.index += 1;
       if (job.index % 10 === 0) save();
@@ -151,21 +179,14 @@
     if (regions.length > 50) throw new Error("Выберите не больше 50 регионов с учётом исключений.");
     const query = core.buildQuery(parsed.basePhrase, [], parsed.userMinusWords, []);
     const settings = { ...parsed, regions };
-    const previousSettings = state.settings;
-    state.settings = settings;
     api.setStatus(status, "Собираю исходную выдачу…");
-    let rows;
-    try {
-      rows = await requestTop(query);
-    } catch (error) {
-      state.settings = previousSettings;
-      throw error;
-    }
-    state.rows.clear();
+    const rows = await requestTop(query, regions);
+    state.settings = settings;
+    resetRows();
     state.frontier = [];
     state.depth = 0;
     state.job = null;
-    core.mergeRows(state.rows, rows);
+    addRows(rows);
     if (!core.branchComplete(rows)) state.frontier = [{ pathWords: [], pathKeys: [] }];
     render();
     api.setStatus(status, `Исходная выдача собрана. Уникальных фраз: ${state.rows.size}.`);
@@ -221,10 +242,11 @@
     saveTimer = undefined;
     form.reset();
     regionPicker.setSignedValue([]);
-    Object.assign(state, { rows: new Map(), frontier: [], depth: 0, settings: null, job: null });
+    resetRows();
+    Object.assign(state, { frontier: [], depth: 0, settings: null, job: null });
     render();
     api.setStatus(status, "");
-    memory.clear().catch(reportMemory);
+    saving = saving.then(() => memory.clear()).catch(reportMemory);
   });
 
   form.inert = true;
@@ -235,6 +257,8 @@
     regionPicker.setSignedValue(saved.regions);
     const { rows, frontier, depth, settings, job } = saved;
     Object.assign(state, { rows, frontier, depth, settings, job });
+    rowChunk = saved.rowChunk || 0;
+    if (!rowChunk) dirtyRows = new Map(rows);
   }).catch(reportMemory).finally(() => {
     render();
     form.inert = false;
