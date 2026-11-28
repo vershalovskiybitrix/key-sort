@@ -25,5 +25,7 @@ assert.deepStrictEqual(Array.from(expand("{купить|заказать} див
 assert.deepStrictEqual(Array.from(expand("[+ +a|b|c]", 20)), ["a b c", "a c b", "b a c", "b c a", "c a b", "c b a"]);
 assert.deepStrictEqual(Array.from(expand("{x|[+,+a|b]}", 20)), ["x", "a,b", "b,a"]);
 assert.strictEqual(expand("[a|b|c|d|e|f|g|h]", 100).length, 100);
+assert.deepStrictEqual(Array.from(expand("{a|a|b}", 2)), ["a", "b"]);
+assert.deepStrictEqual(Array.from(expand("{a|a}{x|x|y}", 3)), ["ax", "ay"]);
 assert.throws(() => expand("{a|b", 20), /Незакрытая/);
 console.log("multiplier tests passed");

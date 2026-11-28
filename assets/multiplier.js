@@ -54,52 +54,80 @@
     return null;
   }
 
-  function permutations(items, limit) {
-    const result = []; const used = Array(items.length).fill(false); const current = [];
-    function walk() {
-      if (result.length >= limit) return;
-      if (current.length === items.length) { result.push([...current]); return; }
-      const level = new Set();
-      for (let i = 0; i < items.length; i += 1) if (!used[i] && !level.has(items[i])) { level.add(items[i]); used[i] = true; current.push(items[i]); walk(); current.pop(); used[i] = false; }
+  function* permutations(items, current = [], used = new Set()) {
+    if (current.length === items.length) {
+      yield current;
+      return;
     }
-    walk(); return result;
+    const seen = new Set();
+    for (let index = 0; index < items.length; index += 1) {
+      if (used.has(index) || seen.has(items[index])) continue;
+      seen.add(items[index]);
+      used.add(index);
+      yield* permutations(items, [...current, items[index]], used);
+      used.delete(index);
+    }
   }
 
-  function cartesian(groups, limit) {
-    let result = [[]];
-    for (const group of groups) {
-      const next = [];
-      for (const base of result) for (const item of group) { next.push([...base, item]); if (next.length >= limit) break; }
-      result = next;
+  function* combinations(options, index = 0, selected = []) {
+    if (index === options.length) {
+      yield selected;
+      return;
     }
-    return result;
+    for (const item of uniqueVariants(options[index])) {
+      yield* combinations(options, index + 1, [...selected, item]);
+    }
+  }
+
+  function* replacements(inside, open) {
+    if (open === "{") {
+      for (const option of splitTopLevel(inside)) yield* uniqueVariants(option);
+      return;
+    }
+    const separator = inside.match(/^\+([\s\S]*?)\+/);
+    const options = splitTopLevel(separator ? inside.slice(separator[0].length) : inside);
+    for (const selected of combinations(options)) {
+      for (const order of permutations(selected)) yield order.join(separator?.[1] ?? "");
+    }
+  }
+
+  function* uniqueVariants(value) {
+    const block = findBlock(value);
+    if (!block) {
+      yield value;
+      return;
+    }
+    const prefix = value.slice(0, block.start);
+    const suffix = value.slice(block.end + 1);
+    const seen = new Set();
+    const seenReplacements = new Set();
+    for (const replacement of replacements(value.slice(block.start + 1, block.end), block.open)) {
+      if (seenReplacements.has(replacement)) continue;
+      seenReplacements.add(replacement);
+      for (const tail of uniqueVariants(suffix)) {
+        const result = prefix + replacement + tail;
+        if (seen.has(result)) continue;
+        seen.add(result);
+        yield result;
+      }
+    }
   }
 
   function expand(value, limit) {
-    const block = findBlock(value); if (!block) return [value];
-    const prefix = value.slice(0, block.start); const suffix = value.slice(block.end + 1);
-    let inside = value.slice(block.start + 1, block.end); let replacements = [];
-    if (block.open === "{") {
-      for (const option of splitTopLevel(inside)) replacements.push(...expand(option, limit - replacements.length));
-    } else {
-      let separator = ""; const match = inside.match(/^\+([\s\S]*?)\+/);
-      if (match) { separator = match[1]; inside = inside.slice(match[0].length); }
-      const groups = splitTopLevel(inside).map(option => expand(option, limit));
-      for (const selection of cartesian(groups, limit)) {
-        for (const order of permutations(selection, limit - replacements.length)) { replacements.push(order.join(separator)); if (replacements.length >= limit) break; }
-        if (replacements.length >= limit) break;
-      }
-    }
     const result = [];
-    for (const replacement of replacements) for (const tail of expand(suffix, limit)) { result.push(prefix + replacement + tail); if (result.length >= limit) return result; }
+    if (limit <= 0) return result;
+    for (const item of uniqueVariants(value)) {
+      result.push(item);
+      if (result.length >= limit) break;
+    }
     return result;
   }
 
   document.getElementById("seoApply").addEventListener("click", () => {
-    const limit = Math.max(1, Number(document.getElementById("seoLimit").value) || 10000);
+    const limit = Math.min(100000, Math.max(1, Math.trunc(Number(document.getElementById("seoLimit").value)) || 10000));
     const status = document.getElementById("seoStatus");
     try {
-      const result = [...new Set(expand(document.getElementById("seoTemplate").value, limit + 1))];
+      const result = expand(document.getElementById("seoTemplate").value, limit + 1);
       const truncated = result.length > limit; const shown = result.slice(0, limit);
       document.getElementById("seoResult").value = shown.join("\n");
       api.setStatus(status, `${truncated ? "Достигнут лимит. " : ""}Результатов: ${shown.length}.`);
