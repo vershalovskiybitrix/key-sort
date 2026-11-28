@@ -9,8 +9,9 @@ function element(id) {
   return elements.get(id);
 }
 const context = {
-  window: { KeySortServices: { autoGrow() {}, lines() { return []; }, setStatus() {} } },
-  document: { getElementById: element, querySelectorAll() { return []; } },
+  window: { KeySortServices: { autoGrow() {}, lines() { return []; }, setStatus() {},
+    pageMemory() { return { load: async () => undefined }; } } },
+  document: { getElementById: element, querySelectorAll() { return []; }, querySelector: element },
   Event: function Event(type) { this.type = type; },
   Set,
   Error,

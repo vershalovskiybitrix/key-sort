@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Key Sort — сортировка поисковых запросов</title>
-  <link rel="icon" href="assets/favicon.ico?v=1" sizes="16x16"><link rel="stylesheet" href="assets/app.css?v=9">
+  <link rel="icon" href="assets/favicon.ico?v=1" sizes="16x16"><link rel="stylesheet" href="assets/app.css?v=15">
 </head>
 <body>
   <header class="site-header">
@@ -157,6 +157,22 @@
           <input id="groupName" maxlength="30" placeholder="Название новой группы" aria-label="Название новой группы">
           <button type="submit" class="field-button">Добавить группу</button>
         </form>
+        <div class="special-group-actions" id="specialGroupActions">
+          <button class="field-button" type="button" data-special-group="geo">Гео</button>
+          <button class="field-button" type="button" data-special-group="conversion">Конверсионные</button>
+          <button class="field-button" type="button" data-special-group="money">Денежные</button>
+        </div>
+        <dialog class="special-group-dialog" id="specialGroupDialog" aria-labelledby="specialGroupTitle">
+          <form method="dialog">
+            <div class="panel-head"><h2 class="panel-title" id="specialGroupTitle">Настройки фильтра</h2></div>
+            <label for="specialGroupTerms">Слова и фразы, по одной на строку</label>
+            <textarea id="specialGroupTerms" rows="12" spellcheck="false"></textarea>
+            <div class="special-group-actions">
+              <button class="field-button" value="save">Сохранить</button>
+              <button class="field-button" value="cancel">Отмена</button>
+            </div>
+          </form>
+        </dialog>
       </section>
     </section>
 
@@ -180,7 +196,7 @@
   </main>
   <footer class="site-footer">Inspired by Denis Efimov<br>Made by Anton Vershalovskiy · <a href="https://github.com/vershalovskiybitrix/key-sort" target="_blank" rel="noreferrer noopener">GitHub</a></footer>
 
-<script src="assets/services-menu.js?v=4"></script>
-  <script src="assets/app.js?v=7"></script>
+<script src="assets/services-menu.js?v=6"></script>
+  <script src="assets/app.js?v=8"></script>
 </body>
 </html>

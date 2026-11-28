@@ -152,8 +152,64 @@
     return `После очистки не осталось фраз для отправки.${details.length ? `\n${details.join("\n")}` : ""}`;
   }
 
+  const forecastTable = document.getElementById("forecastResults").closest("table");
+  const sortFields = ["Phrase", "Shows", "Clicks", "CTR", "FirstPlaceClicks", "FirstPlaceCTR", "PremiumClicks", "PremiumCTR", "Min", "Max", "PremiumMin", "PremiumMax", "AuctionBids"];
+  const collator = new Intl.Collator("ru", { numeric: true, sensitivity: "base" });
+  let sortField = null;
+  let sortDirection = 0;
+
+  function sortedPhrases() {
+    const rows = lastResult?.Phrases || [];
+    if (!sortDirection) return rows;
+    if (sortField === "Phrase" || sortField === "AuctionBids") {
+      return [...rows].sort((a, b) => sortDirection * collator.compare(
+        sortField === "Phrase" ? a.Phrase ?? "" : formatBids(a),
+        sortField === "Phrase" ? b.Phrase ?? "" : formatBids(b)
+      ));
+    }
+    return [...rows].sort((a, b) => {
+      const x = a[sortField];
+      const y = b[sortField];
+      if (x == null || x === "") return y == null || y === "" ? 0 : 1;
+      if (y == null || y === "") return -1;
+      return sortDirection * (Number(x) - Number(y));
+    });
+  }
+
+  function formatBids(row) {
+    return (row.AuctionBids || []).map(item => `${item.Position}: ${number(item.Bid)} / ${number(item.Price)}`).join("; ");
+  }
+
+  const sortHeaders = [...forecastTable.tHead.rows[0].cells].map((cell, index) => {
+    const field = sortFields[index];
+    const label = cell.textContent;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "query-sort-button query-header-sort";
+    button.textContent = label;
+    button.addEventListener("click", () => {
+      const firstDirection = field === "Phrase" || field === "AuctionBids" ? 1 : -1;
+      sortDirection = sortField !== field || !sortDirection ? firstDirection
+        : sortDirection === firstDirection ? -firstDirection : 0;
+      sortField = field;
+      for (const header of sortHeaders) {
+        const direction = header.field === field ? sortDirection : 0;
+        header.button.textContent = header.label + (direction > 0 ? " ▲" : direction < 0 ? " ▼" : "");
+        if (direction) header.cell.setAttribute("aria-sort", direction > 0 ? "ascending" : "descending");
+        else header.cell.removeAttribute("aria-sort");
+      }
+      renderRows();
+    });
+    cell.replaceChildren(button);
+    return { cell, button, label, field };
+  });
+
+  function exportRow(row) {
+    return [String(row.Phrase ?? ""), String(Number(row.Shows || 0))];
+  }
+
   copyButton.addEventListener("click", async () => {
-    const rows = [["Фраза", "Показы"], ...exportedRows];
+    const rows = [["Фраза", "Показы"], ...sortedPhrases().map(exportRow)];
     const text = rows.map(row => row.join("\t")).join("\n");
     const html = `<table>${rows.map((row, index) => `<tr>${row.map(value => `<${index ? "td" : "th"}>${htmlEscape(value)}</${index ? "td" : "th"}>`).join("")}</tr>`).join("")}</table>`;
     try {
@@ -211,13 +267,19 @@
     document.getElementById("forecastGeo").textContent = `Регион: ${common.Geo || "—"}`;
     const summary = document.querySelectorAll("#forecastSummary strong");
     [common.Shows, common.Clicks, common.FirstPlaceClicks, common.PremiumClicks].forEach((value, index) => { summary[index].textContent = number(value); });
-    const body = document.getElementById("forecastResults");
-    body.textContent = "";
-    exportedRows = (data.Phrases || []).map(row => [String(row.Phrase ?? ""), String(Number(row.Shows || 0))]);
+    exportedRows = (data.Phrases || []).map(exportRow);
     copyButton.disabled = exportedRows.length === 0;
     csvButton.disabled = exportedRows.length === 0;
-    for (const row of data.Phrases || []) {
-      const bids = (row.AuctionBids || []).map(item => `${item.Position}: ${number(item.Bid)} / ${number(item.Price)}`).join("; ");
+    renderRows();
+    scheduleSave();
+  }
+
+  function renderRows() {
+    const body = forecastTable.tBodies[0];
+    body.textContent = "";
+    const fragment = document.createDocumentFragment();
+    for (const row of sortedPhrases()) {
+      const bids = formatBids(row);
       const values = [row.Phrase, row.Shows, row.Clicks, row.CTR, row.FirstPlaceClicks, row.FirstPlaceCTR, row.PremiumClicks, row.PremiumCTR, row.Min, row.Max, row.PremiumMin, row.PremiumMax, bids || "—"];
       const tr = document.createElement("tr");
       values.forEach((value, index) => {
@@ -225,9 +287,9 @@
         td.textContent = index === 0 || index === values.length - 1 ? String(value ?? "—") : number(value);
         tr.append(td);
       });
-      body.append(tr);
+      fragment.append(tr);
     }
-    scheduleSave();
+    body.append(fragment);
   }
 
   function clearResult() {

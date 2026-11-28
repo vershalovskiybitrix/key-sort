@@ -83,5 +83,43 @@
     resize();
   }
 
-  window.KeySortServices = { requestExtension, setStatus, bindExtensionState, lines, autoGrow };
+  function pageMemory(key) {
+    let database;
+    function access(mode, operation) {
+      database ||= new Promise((resolve, reject) => {
+        const request = indexedDB.open("key-sort", 1);
+        request.onupgradeneeded = () => {
+          if (!request.result.objectStoreNames.contains("projects")) request.result.createObjectStore("projects");
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      return database.then(db => new Promise((resolve, reject) => {
+        const transaction = db.transaction("projects", mode);
+        const request = operation(transaction.objectStore("projects"));
+        transaction.oncomplete = () => resolve(request.result);
+        transaction.onabort = () => reject(transaction.error);
+      }));
+    }
+    async function load() {
+      const saved = await access("readonly", store => store.get(key));
+      if (saved?.expires > Date.now()) return saved.value;
+      if (saved) await clear();
+    }
+    function save(value) {
+      const expires = new Date();
+      const day = expires.getUTCDate();
+      expires.setUTCDate(1);
+      expires.setUTCMonth(expires.getUTCMonth() + 4);
+      const lastDay = new Date(Date.UTC(expires.getUTCFullYear(), expires.getUTCMonth() + 1, 0)).getUTCDate();
+      expires.setUTCDate(Math.min(day, lastDay));
+      return access("readwrite", store => store.put({ value, expires: expires.getTime() }, key));
+    }
+    function clear() {
+      return access("readwrite", store => store.delete(key));
+    }
+    return { load, save, clear };
+  }
+
+  window.KeySortServices = { requestExtension, setStatus, bindExtensionState, lines, autoGrow, pageMemory };
 })();

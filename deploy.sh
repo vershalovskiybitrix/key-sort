@@ -23,6 +23,8 @@ chmod 0644 \
   budget-forecast.html \
   text-format.html \
   subtract.html \
+  minus-cleanup.html \
+  minus-collect.html \
   multiplier.html \
   extension-install.html \
   assets/app.css \
@@ -37,6 +39,8 @@ chmod 0644 \
   assets/budget-forecast.js \
   assets/text-format.js \
   assets/subtract.js \
+  assets/minus-cleanup.js \
+  assets/minus-collect.js \
   assets/multiplier.js \
   assets/favicon.ico \
   assets/vcg-logo.png \

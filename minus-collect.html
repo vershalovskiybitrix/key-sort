@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru" class="service-page">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Автосбор минусов — Key Sort</title>
+  <link rel="icon" href="assets/favicon.ico">
+  <link rel="stylesheet" href="assets/app.css?v=14">
+  <link rel="stylesheet" href="assets/services.css?v=14">
+</head>
+<body>
+<header class="site-header"><div class="site-header-inner">
+  <a class="site-logo" href="/" aria-label="На главную Key Sort"><img src="assets/vcg-logo.png" alt="Vershalovskiy Consulting Group"></a>
+  <div class="site-tool-title"><h1>Автосбор минусов</h1></div>
+  <div class="site-contacts">Telegram: <a href="https://t.me/vershalovskiy" target="_blank" rel="nofollow noreferrer noopener">@vershalovskiy</a><br>E-mail: <a href="mailto:vcg@vershalovskiy.com">vcg@vershalovskiy.com</a></div>
+</div></header>
+<main>
+  <div class="service-topbar"><div class="field-head-actions"><button class="field-button" id="collectClear" type="button" disabled>Очистить</button><div class="services-menu-root" data-services-menu></div></div></div>
+  <div class="service-grid">
+    <section class="panel"><label for="collectQueries">Целевые фразы, по одной на строку</label>
+      <textarea class="service-textarea" id="collectQueries" spellcheck="false"></textarea></section>
+    <section class="panel"><label for="collectMinuses">Нецелевые запросы, по одному на строку</label>
+      <textarea class="service-textarea" id="collectMinuses" spellcheck="false"></textarea></section>
+  </div>
+  <section class="panel">
+    <div class="service-status" id="collectStatus" role="status"></div>
+    <div class="panel-head">
+      <h2 class="panel-title" id="collectResultsTitle">Минус-слова</h2>
+      <div class="service-checks">
+        <button class="field-button" id="collectCopy" type="button" disabled>Скопировать</button>
+        <label class="service-check"><input id="collectWithoutPrepositions" type="checkbox">Без предлогов</label>
+        <label class="service-check"><input id="collectWithoutAdverbsAndPronouns" type="checkbox">Без наречий и местоимений</label>
+        <label class="service-check"><input id="collectRepeatedOnly" type="checkbox">2 и чаще</label>
+        <label class="service-check"><input id="collectWithFrequency" type="checkbox">С частотой</label>
+      </div>
+    </div>
+    <div class="data-table-wrap"><table class="data-table" aria-labelledby="collectResultsTitle">
+      <thead><tr><th scope="col">Слово</th><th scope="col">Употреблений в нецелевых</th></tr></thead>
+      <tbody id="collectResults"></tbody>
+    </table></div>
+  </section>
+</main>
+<script src="assets/services-menu.js?v=6"></script>
+<script src="assets/services-common.js?v=9"></script>
+<script src="assets/minus-collect.js?v=5"></script>
+</body>
+</html>

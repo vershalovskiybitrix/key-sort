@@ -29,6 +29,8 @@
     ["Прогноз бюджета", "budget-forecast.html"],
     ["Форматирование текста", "text-format.html"],
     ["Вычитание дублей", "subtract.html"],
+    ["Чистка минусов", "minus-cleanup.html"],
+    ["Автосбор минусов", "minus-collect.html"],
     ["Перемножитель", "multiplier.html"]
   ];
 

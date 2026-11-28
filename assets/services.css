@@ -5,13 +5,14 @@
 .service-grid + .panel, .service-page main > .panel + .panel, .service-page main > .panel + .service-grid { margin-top: 16px; }
 .service-form { display: grid; gap: 12px; }
 .service-row { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
-.service-field { display: grid; gap: 5px; min-width: 150px; flex: 1 1 180px; font-size: 12px; }
+.service-field { display: grid; gap: 8px; min-width: 150px; flex: 1 1 180px; font-size: 13px; }
 .service-field.wide { flex-basis: 360px; }
 .service-field input, .service-field select { width: 100%; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 9px; background: #fff; color: #000; font: 13px/1.2 var(--font-body); }
 .service-field-head { display: flex; min-height: 30px; align-items: center; justify-content: space-between; gap: 10px; }
-.service-limit { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; }
+.service-limit { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; }
 .service-limit input { width: 100px; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 9px; background: #fff; color: #000; font: 13px/1.2 var(--font-body); }
-.result-head { margin: 12px 0 5px; }
+.result-head { margin: 12px 0 8px; }
+.service-grid > .panel > label:has(+ textarea) { display: flex; align-items: center; min-height: 30px; margin-bottom: 8px; }
 .service-field input:focus, .service-field select:focus { border-color: #000; outline: 2px solid #000; outline-offset: -1px; }
 .service-checks { display: flex; align-items: center; gap: 12px 18px; flex-wrap: wrap; }
 .service-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
@@ -19,20 +20,22 @@
 .service-textarea { min-height: 260px; line-height: 1.35; }
 .service-textarea.compact { min-height: 150px; }
 .service-textarea.auto-grow { min-height: 44px; height: 44px; max-height: 380px; }
-.service-textarea.parser-minus { min-height: 72px; resize: vertical; }
+.parser-fields { align-items: start; }
+.parser-primary { display: grid; gap: 12px; min-width: 0; }
+.parser-fields .service-field, .parser-fields .region-picker { min-width: 0; }
+.service-textarea.parser-minus { min-height: calc(8lh + 28px); resize: vertical; }
 .parser-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.field-button:disabled { cursor: not-allowed; opacity: .45; }
-.service-status { min-height: 20px; margin-top: 10px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+.service-status { min-height: 20px; margin-top: 10px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
 .service-status.error { border: 1px solid #000; padding: 9px 10px; }
 .extension-toolbar { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
-.extension-state { display: flex; flex: 0 1 auto; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid #aaa; border-bottom: 1px solid #aaa; margin: 0; font-size: 12px; }
+.extension-state { display: flex; flex: 0 1 auto; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid #aaa; border-bottom: 1px solid #aaa; margin: 0; font-size: 13px; }
 .extension-state strong { font-family: var(--font-heading); }
 .extension-toolbar .services-menu-root { flex: 0 0 auto; align-self: center; margin-left: auto; }
 .service-page .services-menu-root > .settings-button { border-color: #000; background: #000; color: #fff; }
 .extension-install-steps { margin: 0; padding-left: 24px; font-size: 13px; line-height: 1.7; }
-.template-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.template-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 8px; }
 .data-table-wrap { overflow: auto; background: #fff; border: 1px solid #aaa; }
-.data-table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
 .data-table th, .data-table td { padding: 7px 9px; border-right: 1px solid #aaa; border-bottom: 1px solid #ddd; text-align: right; }
 .data-table th:first-child, .data-table td:first-child { text-align: left; }
 .data-table th { position: sticky; top: 0; background: #efefed; color: #000; }
@@ -41,13 +44,13 @@
 .summary-table { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #aaa; margin-bottom: 16px; }
 .summary-cell { padding: 10px; border-right: 1px solid #aaa; }
 .summary-cell:last-child { border-right: 0; }
-.summary-cell small { display: block; margin-bottom: 4px; font-size: 11px; }
-.summary-cell strong { font-size: 18px; font-variant-numeric: tabular-nums; }
-.seo-syntax { font-size: 12px; line-height: 1.55; }
+.summary-cell small { display: block; margin-bottom: 4px; font-size: 13px; }
+.summary-cell strong { font-size: 13px; font-variant-numeric: tabular-nums; }
+.seo-syntax { font-size: 13px; line-height: 1.55; }
 .seo-syntax code { border: 1px solid #aaa; padding: 1px 4px; }
 .multiplier-simple { align-items: start; }
 .multiplier-simple textarea { min-height: 120px; max-height: 380px; }
-.result-note { margin-top: 8px; font-size: 11px; }
+.result-note { margin-top: 8px; font-size: 13px; }
 .region-picker { position: relative; min-width: 260px; }
 .region-picker-button { position: relative; width: 100%; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 28px 0 9px; background: #fff; color: #000; font: 13px/1.2 var(--font-body); text-align: left; cursor: pointer; }
 .region-picker-button::after { content: "▾"; position: absolute; top: 50%; right: 9px; transform: translateY(-50%); }
@@ -60,7 +63,7 @@
 .region-picker-tree { max-height: 360px; overflow: auto; background: #fff; }
 .region-tree-level { margin: 0; padding: 0; list-style: none; }
 .region-tree-row { display: flex; align-items: stretch; min-height: 28px; padding-left: calc(var(--region-depth) * 18px); border-bottom: 1px solid #e1e1df; }
-.region-tree-toggle, .region-tree-spacer { flex: 0 0 28px; width: 28px; border: 0; padding: 0; background: transparent; color: #000; font: 700 15px/1 var(--font-body); }
+.region-tree-toggle, .region-tree-spacer { flex: 0 0 28px; width: 28px; border: 0; padding: 0; background: transparent; color: #000; font: 700 13px/1 var(--font-body); }
 .region-tree-toggle { cursor: pointer; }
 .region-tree-select { display: flex; flex: 1 1 auto; align-items: center; gap: 7px; min-width: 0; padding: 5px 8px 5px 0; background: transparent; color: #000; font: 13px/1.25 var(--font-body); cursor: pointer; }
 .service-field .region-picker-all input, .service-field .region-tree-select input { flex: 0 0 16px; width: 16px; height: 16px; margin: 0; border: 0; padding: 0; background: transparent; accent-color: #000; }

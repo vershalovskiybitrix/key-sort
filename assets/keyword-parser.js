@@ -11,6 +11,30 @@
   const deeperTwoButton = document.getElementById("parserDeeperTwo");
   const DISPLAY_LIMIT = 5000;
   const state = { rows: new Map(), frontier: [], depth: 0, settings: null, running: false, job: null };
+  const memory = api.pageMemory("keyword-parser");
+  const queryField = document.getElementById("parserQuery");
+  const minusField = document.getElementById("parserMinus");
+  const clearButton = document.getElementById("parserClear");
+  const regionsRoot = document.getElementById("parserRegions");
+  let saveTimer;
+
+  function reportMemory(error) {
+    api.setStatus(status, `Память браузера: ${error.message}`, true);
+  }
+
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = undefined;
+    memory.save({
+      query: queryField.value, minus: minusField.value, regions: regionPicker.signedValue(),
+      rows: state.rows, frontier: state.frontier, depth: state.depth, settings: state.settings, job: state.job
+    }).catch(reportMemory);
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 500);
+  }
 
   api.bindExtensionState(["API-ключ Yandex Cloud", "ID каталога"]);
   const regionPicker = window.KeySortRegions.bindRegionTree(document.getElementById("parserRegions"));
@@ -19,6 +43,7 @@
   function setRunning(running) {
     state.running = running;
     collectButton.disabled = running;
+    clearButton.disabled = running;
     deeperOneButton.disabled = running || !state.settings || !state.frontier.length;
     deeperTwoButton.disabled = running || !state.settings || !state.frontier.length;
   }
@@ -121,6 +146,7 @@
       core.mergeRows(state.rows, rows);
       if (!core.branchComplete(rows)) job.nextFrontier.push({ pathWords: task.pathWords, pathKeys: task.pathKeys });
       job.index += 1;
+      if (job.index % 10 === 0) save();
     }
     state.frontier = job.nextFrontier;
     state.depth += 1;
@@ -167,6 +193,7 @@
     } finally {
       render();
       setRunning(false);
+      save();
     }
   }
 
@@ -192,5 +219,34 @@
     api.setStatus(status, `Скопировано строк: ${rows.length}.`);
   });
 
-  render();
+  queryField.addEventListener("input", scheduleSave);
+  minusField.addEventListener("input", scheduleSave);
+  regionsRoot.addEventListener("change", scheduleSave);
+  window.addEventListener("pagehide", () => {
+    if (saveTimer !== undefined || state.running) save();
+  });
+  clearButton.addEventListener("click", () => {
+    if (state.running) return;
+    clearTimeout(saveTimer);
+    saveTimer = undefined;
+    form.reset();
+    regionPicker.setSignedValue([]);
+    Object.assign(state, { rows: new Map(), frontier: [], depth: 0, settings: null, job: null });
+    render();
+    api.setStatus(status, "");
+    memory.clear().catch(reportMemory);
+  });
+
+  form.inert = true;
+  memory.load().then(saved => {
+    if (!saved) return;
+    queryField.value = saved.query;
+    minusField.value = saved.minus;
+    regionPicker.setSignedValue(saved.regions);
+    const { rows, frontier, depth, settings, job } = saved;
+    Object.assign(state, { rows, frontier, depth, settings, job });
+  }).catch(reportMemory).finally(() => {
+    render();
+    form.inert = false;
+  });
 })();

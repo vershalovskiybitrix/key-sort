@@ -696,7 +696,9 @@
         }
         groupIds.add(group.id);
         const name = group.name.trim();
-        return { id: group.id, name, short: groupShortName(name) };
+        const special = Object.hasOwn(SPECIAL_GROUPS, group.special) && typeof group.terms === "string"
+          ? { special: group.special, terms: group.terms } : {};
+        return { id: group.id, name, short: groupShortName(name), ...special };
       });
       const lines = source.queries.split(/\r?\n/u).map(line => line.trim()).filter(Boolean);
       if (lines.length > 100_000) throw new Error("Слишком много поисковых запросов");
@@ -1394,10 +1396,94 @@
     const VIRTUAL_ROW_HEIGHT = 24;
     const VIRTUAL_OVERSCAN = 20;
     let lastRenderedClickable = null;
+    const SPECIAL_GROUPS = {
+      geo: { name: "Гео" },
+      conversion: { name: "Конверсионные", terms: "записаться\nзапись\nзаявка\nзаказать\nзаказ\nзабронировать\nкупить" },
+      money: { name: "Денежные", terms: "цена\nстоимость\nстоит\nсколько стоит\nпрайс\nтариф\nрасценка" }
+    };
+    const manualGroups = () => groups.filter(group => !group.special);
+    let automaticAssignments = new Map();
+
+    function assignSpecialGroups(rows) {
+      const indexes = [];
+      for (const type of Object.keys(SPECIAL_GROUPS)) {
+        const group = groups.find(item => item.special === type);
+        if (!group) continue;
+        const terms = group.terms.split(/\r?\n/u).map(getWords).filter(words => words.length);
+        queueMorphology(terms.flat());
+        const phrases = new Set(terms.map(words => words.map(morphKey).join("\u0000")));
+        indexes.push({ id: group.id, phrases, lengths: [...new Set(terms.map(words => words.length))] });
+      }
+      automaticAssignments = new Map();
+      if (!indexes.length) return;
+      for (const row of rows) {
+        const keys = getWords(queryPhrase(row.line)).map(morphKey);
+        const match = indexes.find(({ phrases, lengths }) => lengths.some(length => {
+          for (let start = 0; start + length <= keys.length; start += 1) {
+            if (phrases.has(keys.slice(start, start + length).join("\u0000"))) return true;
+          }
+          return false;
+        }));
+        if (match) automaticAssignments.set(row.id, match.id);
+      }
+    }
+
+    async function defaultGeoTerms() {
+      const response = await fetch("assets/regions.json");
+      if (!response.ok) throw new Error("Не удалось загрузить справочник регионов.");
+      const pending = [...(await response.json()).regions];
+      const terms = new Set(["мск", "спб", "питер", "екб"]);
+      while (pending.length) {
+        const node = pending.pop();
+        if (!node.label.includes("(")) terms.add(node.label);
+        pending.push(...(node.children || []));
+      }
+      return [...terms].sort((a, b) => a.localeCompare(b, "ru")).join("\n");
+    }
+
+    const specialDialog = $("specialGroupDialog");
+    let editedSpecialId;
+    function editSpecialFilter(group) {
+      editedSpecialId = group.id;
+      $("specialGroupTitle").textContent = `Настройки фильтра «${group.name}»`;
+      $("specialGroupTerms").value = group.terms;
+      specialDialog.returnValue = "";
+      specialDialog.showModal();
+    }
+    specialDialog.addEventListener("close", () => {
+      if (specialDialog.returnValue !== "save") return;
+      const terms = $("specialGroupTerms").value;
+      performHistoryAction(() => {
+        groups = groups.map(group => group.id === editedSpecialId ? { ...group, terms } : group);
+        recalculate();
+      });
+    });
+
+    for (const button of $("specialGroupActions").querySelectorAll("button")) {
+      button.addEventListener("click", async () => {
+        const special = button.dataset.specialGroup;
+        const preset = SPECIAL_GROUPS[special];
+        const previous = groups;
+        button.disabled = true;
+        try {
+          const terms = preset.terms ?? await defaultGeoTerms();
+          if (groups !== previous || groups.some(group => group.special === special)) return;
+          performHistoryAction(() => {
+            groups = [...groups, { id: `special-${crypto.randomUUID()}`, name: preset.name, short: groupShortName(preset.name), special, terms }];
+            recalculate();
+          });
+        } catch (error) {
+          window.alert(error.message);
+        } finally {
+          button.disabled = false;
+        }
+      });
+    }
+
     function assignedGroup(row) {
       const value = assignments[row.id];
       const candidates = Array.isArray(value) ? value : [value];
-      return candidates.find(id => groups.some(group => group.id === id)) || null;
+      return candidates.find(id => groups.some(group => group.id === id && !group.special)) || automaticAssignments.get(row.id) || null;
     }
     function moveGroup(groupId, offset) {
       const index = groups.findIndex(group => group.id === groupId);
@@ -1428,6 +1514,14 @@
       input.setAttribute("aria-label", `Новое название группы «${group.name}»`);
       title.replaceWith(input);
       controls.replaceChildren();
+      if (group.special) {
+        const filter = document.createElement("button");
+        filter.type = "button";
+        filter.className = "field-button";
+        filter.textContent = "Настройки фильтра";
+        filter.addEventListener("click", () => editSpecialFilter(group));
+        controls.append(filter);
+      }
       const groupIndex = groups.findIndex(item => item.id === group.id);
       const left = document.createElement("button");
       left.type = "button";
@@ -1501,6 +1595,7 @@
         item.append(frequency);
       }
       const back = document.createElement("button");
+      if (automaticAssignments.get(row.id) === assignedGroup(row)) return item;
       back.type = "button";
       back.className = "group-list-return";
       back.textContent = "×";
@@ -1564,6 +1659,9 @@
       render();
     }
     function renderGroupLists(lines) {
+      for (const button of $("specialGroupActions").querySelectorAll("button")) {
+        button.hidden = groups.some(group => group.special === button.dataset.specialGroup);
+      }
       const root = $("groupLists");
       const lemmaFrequencyItems = $("lemmaFrequencyItems");
       const lemmaFrequencyScrollTop = lemmaFrequencyItems.scrollTop;
@@ -1610,7 +1708,7 @@
     }
     function toggleGroup(row, column) {
       const queryRow = lastVisible[row];
-      const group = groups[column];
+      const group = manualGroups()[column];
       if (!queryRow || !group) return;
       performHistoryAction(() => {
         assignments = { ...assignments, [queryRow.id]: group.id };
@@ -1641,10 +1739,11 @@
       const grid = document.createElement("div");
       grid.className = "query-grid";
       if (frequencyMode.checked) grid.classList.add("with-frequency");
-      grid.style.setProperty("--group-columns", `repeat(${groups.length}, 24px)`);
+      const columns = manualGroups();
+      if (columns.length) grid.style.setProperty("--group-columns", `repeat(${columns.length}, 24px)`);
       const header = document.createElement("div");
       header.className = "query-row query-row-header";
-      for (const group of groups) {
+      for (const group of columns) {
         const cell = document.createElement("div");
         cell.className = "group-head";
         cell.textContent = group.short;
@@ -1697,7 +1796,7 @@
         const parsed = parseQueryLine(sourceRow.line);
         const row = document.createElement("div");
         row.className = "query-row";
-        groups.forEach((group, column) => {
+        columns.forEach((group, column) => {
           const button = document.createElement("button");
           button.type = "button";
           button.className = "group-cell";
@@ -1787,6 +1886,7 @@
         if (!excluded) excluded = Array.from(negativePhraseCandidates(words, negativePhraseIndex)).some(p => phraseMatches(query, p));
         if (!excluded) remaining.push(row);
       }
+      assignSpecialGroups(remaining);
       const unassigned = remaining.filter(line => !assignedGroup(line));
       lastRemaining = unassigned;
       lastVisible = sortVisibleRows(visibleByFilters(unassigned));
@@ -1999,7 +2099,7 @@
       if (!direction) return;
       e.preventDefault();
       const nextRow = Math.max(0, Math.min(lastVisible.length - 1, row + direction[0]));
-      const nextColumn = Math.max(0, Math.min(groups.length - 1, column + direction[1]));
+      const nextColumn = Math.max(0, Math.min(manualGroups().length - 1, column + direction[1]));
       focusGroupCell(nextRow, nextColumn);
     });
     let virtualScrollFrame = null;

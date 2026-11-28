@@ -19,7 +19,7 @@
   document.getElementById("multiplyApply").addEventListener("click", () => {
     const a = api.lines(document.getElementById("multiplyA").value);
     const b = api.lines(document.getElementById("multiplyB").value);
-    const limit = Math.max(1, Number(document.getElementById("multiplyLimit").value) || 10000);
+    const limit = Math.min(100000, Math.max(1, Math.trunc(Number(document.getElementById("multiplyLimit").value)) || 10000));
     const result = [];
     outer: for (const left of a) for (const right of b) { result.push(`${left} ${right}`.trim()); if (result.length >= limit) break outer; }
     document.getElementById("multiplyResult").value = result.join("\n");
@@ -113,7 +113,61 @@
     const close = button.dataset.template === "choice" ? "}" : "]";
     const insertion = `${open}${selected || placeholder}${close}`;
     textarea.setRangeText(insertion, textarea.selectionStart, textarea.selectionEnd, "end");
+    textarea.dispatchEvent(new Event("input"));
     textarea.focus();
   }));
+  function bindMemory(prefix, fieldIds, auto) {
+    const get = id => document.getElementById(id);
+    const fields = fieldIds.map(get);
+    const result = get(prefix + "Result");
+    const status = get(prefix + "Status");
+    const apply = get(prefix + "Apply");
+    const memory = api.pageMemory(prefix);
+    const report = error => api.setStatus(status, error.message, true);
+    const save = () => memory.save({
+      fields: fields.map(field => field.type === "checkbox" ? field.checked : field.value),
+      result: result.value
+    }).catch(report);
+    let timer;
+    let updatingFields = false;
+    for (const field of fields) field.addEventListener("input", () => {
+      if (updatingFields) return;
+      clearTimeout(timer);
+      save();
+      if (auto?.checked) timer = setTimeout(() => apply.click(), 350);
+    });
+    apply.addEventListener("click", () => { clearTimeout(timer); save(); });
+    get(prefix + "Clear").addEventListener("click", () => {
+      clearTimeout(timer);
+      for (const field of fields) {
+        if (field.type === "checkbox") field.checked = field.defaultChecked;
+        else field.value = field.defaultValue;
+      }
+      result.value = "";
+      updatingFields = true;
+      [...fields, result].filter(field => field.tagName === "TEXTAREA").forEach(field => field.dispatchEvent(new Event("input")));
+      updatingFields = false;
+      api.setStatus(status, "");
+      memory.clear().catch(report);
+    });
+    return memory.load().then(saved => {
+      if (!saved) return;
+      fields.forEach((field, index) => {
+        if (field.type === "checkbox") field.checked = saved.fields[index];
+        else field.value = saved.fields[index];
+      });
+      result.value = saved.result;
+      updatingFields = true;
+      [...fields, result].filter(field => field.tagName === "TEXTAREA").forEach(field => field.dispatchEvent(new Event("input")));
+      updatingFields = false;
+    }).catch(report);
+  }
+
+  const main = document.querySelector("main");
+  main.inert = true;
+  Promise.all([
+    bindMemory("multiply", ["multiplyA", "multiplyB", "multiplyLimit", "multiplyAuto"], document.getElementById("multiplyAuto")),
+    bindMemory("seo", ["seoTemplate", "seoLimit"])
+  ]).finally(() => { main.inert = false; });
   window.KeySortMultiplier = { expand };
 })();
