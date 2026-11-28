@@ -159,7 +159,9 @@
       document.getElementById("parserMinus").value
     );
     if (!parsed.basePhrase) throw new Error("Введите запрос.");
+    await regionPicker.ready;
     const regions = regionPicker.positiveValue();
+    if (!regions.length && regionPicker.signedValue().length) throw new Error("Из выбранных регионов исключены все доступные регионы.");
     if (regions.length > 100) throw new Error("Выбор с исключениями разворачивается более чем в 100 регионов. Wordstat API принимает не больше 100.");
     const query = core.buildQuery(parsed.basePhrase, [], parsed.userMinusWords, []);
     const settings = { ...parsed, regions };

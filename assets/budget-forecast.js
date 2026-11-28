@@ -437,7 +437,14 @@
     const prepared = preparePhrases(phrasesInput.value);
     const phrases = prepared.phrases;
     if (!phrases.length) return api.setStatus(status, prepared.warnings.length ? emptyPhrasesStatus(prepared.warnings) : "Добавьте хотя бы одну фразу.", true);
+    try {
+      await regionPicker.ready;
+    } catch {
+      return api.setStatus(status, "Регионы не загрузились. Обновите страницу перед расчётом.", true);
+    }
+    if (running) return;
     const geo = regionPicker.signedValue().map(Number).filter(Number.isFinite);
+    if (geo.length && !regionPicker.positiveValue().length) return api.setStatus(status, "Из выбранных регионов исключены все доступные регионы.", true);
     clearResult();
     activeJob = { phrases, warnings: prepared.warnings, geo, currency: currencySelect.value, nextIndex: 0, result: { Phrases: [], Common: { Shows: 0, Clicks: 0, FirstPlaceClicks: 0, PremiumClicks: 0, Geo: "" } } };
     runJob(activeJob);
