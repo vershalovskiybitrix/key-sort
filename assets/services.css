@@ -44,13 +44,13 @@
 .summary-table { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid #aaa; margin-bottom: 16px; }
 .summary-cell { padding: 10px; border-right: 1px solid #aaa; }
 .summary-cell:last-child { border-right: 0; }
-.summary-cell small { display: block; margin-bottom: 4px; font-size: 13px; }
-.summary-cell strong { font-size: 13px; font-variant-numeric: tabular-nums; }
+.summary-cell small { display: block; margin-bottom: 4px; font-size: 11px; }
+.summary-cell strong { font-size: 18px; font-variant-numeric: tabular-nums; }
 .seo-syntax { font-size: 13px; line-height: 1.55; }
 .seo-syntax code { border: 1px solid #aaa; padding: 1px 4px; }
 .multiplier-simple { align-items: start; }
 .multiplier-simple textarea { min-height: 120px; max-height: 380px; }
-.result-note { margin-top: 8px; font-size: 13px; }
+.result-note { margin-top: 8px; font-size: 11px; }
 .region-picker { position: relative; min-width: 260px; }
 .region-picker-button { position: relative; width: 100%; height: 30px; border: 1px solid #aaa; border-radius: 0; padding: 0 28px 0 9px; background: #fff; color: #000; font: 13px/1.2 var(--font-body); text-align: left; cursor: pointer; }
 .region-picker-button::after { content: "▾"; position: absolute; top: 50%; right: 9px; transform: translateY(-50%); }
@@ -63,7 +63,7 @@
 .region-picker-tree { max-height: 360px; overflow: auto; background: #fff; }
 .region-tree-level { margin: 0; padding: 0; list-style: none; }
 .region-tree-row { display: flex; align-items: stretch; min-height: 28px; padding-left: calc(var(--region-depth) * 18px); border-bottom: 1px solid #e1e1df; }
-.region-tree-toggle, .region-tree-spacer { flex: 0 0 28px; width: 28px; border: 0; padding: 0; background: transparent; color: #000; font: 700 13px/1 var(--font-body); }
+.region-tree-toggle, .region-tree-spacer { flex: 0 0 28px; width: 28px; border: 0; padding: 0; background: transparent; color: #000; font: 700 15px/1 var(--font-body); }
 .region-tree-toggle { cursor: pointer; }
 .region-tree-select { display: flex; flex: 1 1 auto; align-items: center; gap: 7px; min-width: 0; padding: 5px 8px 5px 0; background: transparent; color: #000; font: 13px/1.25 var(--font-body); cursor: pointer; }
 .service-field .region-picker-all input, .service-field .region-tree-select input { flex: 0 0 16px; width: 16px; height: 16px; margin: 0; border: 0; padding: 0; background: transparent; accent-color: #000; }
