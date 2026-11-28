@@ -14,6 +14,13 @@ const FORECAST_LOCK_TTL = 2 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 let wordstatReservationChain = Promise.resolve();
+let forecastOperationChain = Promise.resolve();
+
+function serializeForecast(operation) {
+  const result = forecastOperationChain.then(operation);
+  forecastOperationChain = result.catch(() => {});
+  return result;
+}
 
 function pageRequest(sender) {
   return Boolean(sender.tab?.url?.startsWith(SITE));
@@ -107,7 +114,8 @@ async function reserveForecastSlot() {
     error.retryAfter = retryAt - now;
     throw error;
   }
-  return timestamps;
+  timestamps.push(now);
+  await chrome.storage.local.set({ directForecastTimestamps: timestamps });
 }
 
 async function parseResponse(response) {
@@ -177,19 +185,19 @@ async function direct(payload) {
     throw new Error("Статус создания прошлого прогноза неизвестен. Проверьте отчёт в Директе перед новым запуском.");
   }
   if (batch?.deleted && payload.method === "DeleteForecastReport" && batch.id === Number(payload.param)) return { data: true };
-  const forecastTimestamps = payload.method === "CreateNewForecast" ? await reserveForecastSlot() : null;
   if (["GetForecast", "DeleteForecastReport"].includes(payload.method) && !lock.forecastIds.includes(Number(payload.param)) && batch?.id !== Number(payload.param)) {
     throw new Error("Расширение не создавало этот прогноз");
   }
   const request = { method: payload.method, locale: "ru", token: config.directOAuthToken };
   if (Object.prototype.hasOwnProperty.call(payload, "param")) request.param = payload.param;
-  if (batchKey && payload.method === "CreateNewForecast") await chrome.storage.local.set({ [batchKey]: { pending: true } });
+  if (payload.method === "CreateNewForecast") {
+    await reserveForecastSlot();
+    if (batchKey) await chrome.storage.local.set({ [batchKey]: { pending: true } });
+  }
   const response = await fetch(DIRECT_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) });
   const data = await parseResponse(response);
   if (payload.method === "CreateNewForecast") {
     if (batchKey) await chrome.storage.local.set({ [batchKey]: { id: Number(data.data) } });
-    forecastTimestamps.push(Date.now());
-    await chrome.storage.local.set({ directForecastTimestamps: forecastTimestamps });
     lock.forecastIds.push(Number(data.data));
     lock.expiresAt = Date.now() + FORECAST_LOCK_TTL;
     await chrome.storage.local.set({ directForecastLock: lock });
@@ -213,13 +221,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return { version: chrome.runtime.getManifest().version, wordstatDailyLimit: wordstatDailyLimit(config.wordstatDailyLimit), forecastSafety: true, forecastBatchRecovery: true, forecastHourlyLimit: limits.hourly, forecastDailyLimit: limits.daily, forecastAutoResume: limits.autoResume, "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
     }
     if (message.action === "OPEN_OPTIONS") { await chrome.runtime.openOptionsPage(); return true; }
-    if (message.action === "DIRECT_FORECAST_BEGIN") return beginForecast();
-    if (message.action === "DIRECT_FORECAST_TOUCH") { await forecastLock(message.payload?.sessionId); return true; }
-    if (message.action === "DIRECT_FORECAST_END") return endForecast(message.payload?.sessionId);
+    if (message.action === "DIRECT_FORECAST_BEGIN") return serializeForecast(beginForecast);
+    if (message.action === "DIRECT_FORECAST_TOUCH") return serializeForecast(async () => { await forecastLock(message.payload?.sessionId); return true; });
+    if (message.action === "DIRECT_FORECAST_END") return serializeForecast(() => endForecast(message.payload?.sessionId));
     if (message.action === "WORDSTAT_TOP") return wordstat(message.payload || {});
     if (message.action === "WORDSTAT_REGIONS") return wordstatRegions();
     if (message.action === "DIRECT_REGIONS") return directRegions();
-    if (message.action === "DIRECT_CALL") return direct(message.payload || {});
+    if (message.action === "DIRECT_CALL") return serializeForecast(() => direct(message.payload || {}));
     throw new Error("Неизвестное действие");
   })().then(data => sendResponse({ ok: true, data })).catch(error => sendResponse({ ok: false, error: error.message, code: error.code, retryAfter: error.retryAfter }));
   return true;

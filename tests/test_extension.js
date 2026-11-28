@@ -69,8 +69,8 @@ function send(action, payload = {}) {
   delete stored.wordstatDailyLimit;
   delete stored.wordstatTimestamps;
 
-  const session = await send("DIRECT_FORECAST_BEGIN");
-  const concurrent = await send("DIRECT_FORECAST_BEGIN");
+  const [session, concurrent] = await Promise.all([send("DIRECT_FORECAST_BEGIN"), send("DIRECT_FORECAST_BEGIN")]);
+  assert.strictEqual(session.ok, true);
   assert.strictEqual(concurrent.ok, false);
   assert.match(concurrent.error, /уже выполняется/);
   const created = await send("DIRECT_CALL", { method: "CreateNewForecast", param: { Phrases: ["купить диван"] }, sessionId: session.data.sessionId });
@@ -157,5 +157,13 @@ function send(action, payload = {}) {
   assert.strictEqual((await send("DIRECT_CALL", cleanup)).ok, true);
   assert.strictEqual((await send("DIRECT_CALL", cleanup)).ok, true);
   assert.strictEqual(requests.length, beforeResume + 1);
+  stored.directForecastTimestamps = [];
+  stored.forecastHourlyLimit = 1;
+  const quota = await Promise.all([
+    send("DIRECT_CALL", { ...payload, batchId: "10000000-0000-4000-8000-000000000002" }),
+    send("DIRECT_CALL", { ...payload, batchId: "10000000-0000-4000-8000-000000000003" })
+  ]);
+  assert.strictEqual(quota.filter(item => item.ok).length, 1);
+  assert.strictEqual(quota.filter(item => item.code === "FORECAST_RATE_LIMIT").length, 1);
   console.log("extension tests passed");
 })().catch(error => { console.error(error); process.exitCode = 1; });
