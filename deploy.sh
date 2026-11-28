@@ -69,7 +69,8 @@ if [[ ! -x .venv/bin/python ]]; then
   "$python_bin" -m venv .venv
 fi
 
-.venv/bin/pip install -r requirements.txt
+.venv/bin/python -m pip install --only-binary=:all: pip==26.3
+.venv/bin/python -m pip install --only-binary=:all: -r requirements.txt
 render_config key-sort.service "$temp_dir/key-sort.service"
 install -m 0644 "$temp_dir/key-sort.service" /etc/systemd/system/key-sort.service
 install -m 0644 key-sort-limits.conf /etc/nginx/conf.d/key-sort-limits.conf

@@ -22,13 +22,19 @@ document.querySelectorAll("input[type=password]").forEach(input => input.addEven
   const button = document.querySelector(`[data-eye="${input.id}"]`);
   if (button) button.textContent = "Показать";
 }));
-document.getElementById("authorizeDirect").addEventListener("click", () => {
+document.getElementById("authorizeDirect").addEventListener("click", async () => {
   const url = new URL("https://oauth.yandex.ru/authorize");
   url.searchParams.set("response_type", "token");
   url.searchParams.set("client_id", YANDEX_OAUTH_CLIENT_ID);
   url.searchParams.set("redirect_uri", YANDEX_OAUTH_REDIRECT);
   url.searchParams.set("force_confirm", "yes");
-  window.open(url.href, "_blank", "noopener,noreferrer");
+  try {
+    const tab = await chrome.tabs.create({ url: "about:blank" });
+    await chrome.storage.session.set({ directAuthorization: { tabId: tab.id, expiresAt: Date.now() + 600000 } });
+    await chrome.tabs.update(tab.id, { url: url.href });
+  } catch {
+    document.getElementById("status").textContent = "Не удалось начать авторизацию.";
+  }
 });
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "local" || !changes.directOAuthToken?.newValue) return;

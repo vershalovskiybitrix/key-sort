@@ -10,7 +10,7 @@ const context = {
     pathname: "/verification_code",
     hash: "#access_token=test-token&expires_in=31536000"
   },
-  chrome: { storage: { local: { set: async value => { saved = value; } } } },
+  chrome: { runtime: { sendMessage: async value => { saved = value; return { ok: true }; } } },
   document: { title: "", body: { textContent: "" } },
   window: { close() {} },
   URLSearchParams,
@@ -20,7 +20,7 @@ const context = {
 vm.createContext(context);
 vm.runInContext(fs.readFileSync("chrome-extension/oauth-callback.js", "utf8"), context);
 setImmediate(() => {
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(saved)), { directOAuthToken: "test-token" });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(saved)), { action: "DIRECT_OAUTH_CALLBACK", token: "test-token" });
   assert.strictEqual(context.document.title, "Авторизация завершена");
   console.log("oauth callback tests passed");
 });

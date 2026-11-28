@@ -130,9 +130,14 @@ async function wordstat(payload) {
   if (!config.cloudApiKey || !config.folderId) throw new Error("Заполните API-ключ Yandex Cloud и ID каталога в настройках расширения");
   const phrase = String(payload.phrase || "").trim();
   if (!phrase) throw new Error("Пустой запрос");
-  const numPhrases = Math.max(1, Math.min(2000, Number(payload.numPhrases) || 2000));
+  if (Array.from(phrase).length > 399) throw new Error("Максимум 399 символов в запросе.");
+  const numPhrases = Number(payload.numPhrases ?? 2000);
+  if (!Number.isInteger(numPhrases) || numPhrases < 1 || numPhrases > 2000) throw new Error("Допустимо от 1 до 2000 фраз.");
   const body = { phrase, numPhrases, folderId: config.folderId };
-  if (Array.isArray(payload.regions) && payload.regions.length) body.regions = payload.regions.map(String).slice(0, 50);
+  if (payload.regions !== undefined && (!Array.isArray(payload.regions) || payload.regions.length > 50 || payload.regions.some(id => !/^\d+$/u.test(String(id))))) {
+    throw new Error("Укажите не более 50 идентификаторов регионов.");
+  }
+  if (payload.regions?.length) body.regions = payload.regions.map(String);
   await reserveWordstatSlot();
   const response = await fetch(WORDSTAT_URL, {
     method: "POST",
@@ -177,6 +182,17 @@ async function direct(payload) {
   const config = await settings();
   if (!config.directOAuthToken) throw new Error("Заполните OAuth-токен Директа в настройках расширения");
   if (!ALLOWED_DIRECT_METHODS.has(payload.method)) throw new Error("Метод Директа не разрешён расширением");
+  if (payload.method === "CreateNewForecast") {
+    const { Phrases, GeoID, Currency, AuctionBids } = payload.param || {};
+    if (!Array.isArray(Phrases) || Phrases.length < 1 || Phrases.length > 100 ||
+        Phrases.some(phrase => typeof phrase !== "string" || !phrase.trim() || phrase.length > 4096) ||
+        (GeoID !== undefined && (!Array.isArray(GeoID) || GeoID.some(id => !Number.isSafeInteger(id)))) ||
+        (Currency !== undefined && !["RUB", "USD", "EUR", "KZT", "BYN", "TRY", "CHF"].includes(Currency)) ||
+        (AuctionBids !== undefined && !["Yes", "No"].includes(AuctionBids))) {
+      throw new Error("Некорректные параметры пакета прогноза.");
+    }
+    payload = { ...payload, param: { Phrases, GeoID, Currency, AuctionBids } };
+  }
   const lock = await forecastLock(payload.sessionId);
   const batchKey = /^[a-f0-9-]{36}$/i.test(payload.batchId || "") ? `directForecastBatch:${payload.batchId}` : null;
   const batch = batchKey ? (await chrome.storage.local.get(batchKey))[batchKey] : null;
@@ -213,6 +229,19 @@ async function direct(payload) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "DIRECT_OAUTH_CALLBACK") {
+    const callback = sender.url?.split(/[?#]/u, 1)[0];
+    if (callback !== "https://oauth.yandex.ru/verification_code" || sender.frameId !== 0) return false;
+    serializeForecast(async () => {
+      const { directAuthorization } = await chrome.storage.session.get("directAuthorization");
+      if (!directAuthorization || directAuthorization.tabId !== sender.tab?.id || directAuthorization.expiresAt <= Date.now()) return false;
+      if (typeof message.token !== "string" || !/^[A-Za-z0-9_.-]{1,4096}$/u.test(message.token)) return false;
+      await chrome.storage.session.remove("directAuthorization");
+      await chrome.storage.local.set({ directOAuthToken: message.token });
+      return true;
+    }).then(ok => sendResponse({ ok })).catch(() => sendResponse({ ok: false }));
+    return true;
+  }
   if (!pageRequest(sender)) return false;
   (async () => {
     if (message.action === "STATUS") {

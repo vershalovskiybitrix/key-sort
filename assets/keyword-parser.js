@@ -148,7 +148,7 @@
     await regionPicker.ready;
     const regions = regionPicker.positiveValue();
     if (!regions.length && regionPicker.signedValue().length) throw new Error("Из выбранных регионов исключены все доступные регионы.");
-    if (regions.length > 100) throw new Error("Выбор с исключениями разворачивается более чем в 100 регионов. Wordstat API принимает не больше 100.");
+    if (regions.length > 50) throw new Error("Выберите не больше 50 регионов с учётом исключений.");
     const query = core.buildQuery(parsed.basePhrase, [], parsed.userMinusWords, []);
     const settings = { ...parsed, regions };
     const previousSettings = state.settings;
