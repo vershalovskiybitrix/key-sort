@@ -170,23 +170,33 @@ async function direct(payload) {
   if (!config.directOAuthToken) throw new Error("Заполните OAuth-токен Директа в настройках расширения");
   if (!ALLOWED_DIRECT_METHODS.has(payload.method)) throw new Error("Метод Директа не разрешён расширением");
   const lock = await forecastLock(payload.sessionId);
+  const batchKey = /^[a-f0-9-]{36}$/i.test(payload.batchId || "") ? `directForecastBatch:${payload.batchId}` : null;
+  const batch = batchKey ? (await chrome.storage.local.get(batchKey))[batchKey] : null;
+  if (batchKey && payload.method === "CreateNewForecast" && batch) {
+    if (batch.id && !batch.deleted) return { data: batch.id };
+    throw new Error("Статус создания прошлого прогноза неизвестен. Проверьте отчёт в Директе перед новым запуском.");
+  }
+  if (batch?.deleted && payload.method === "DeleteForecastReport" && batch.id === Number(payload.param)) return { data: true };
   const forecastTimestamps = payload.method === "CreateNewForecast" ? await reserveForecastSlot() : null;
-  if (["GetForecast", "DeleteForecastReport"].includes(payload.method) && !lock.forecastIds.includes(Number(payload.param))) {
+  if (["GetForecast", "DeleteForecastReport"].includes(payload.method) && !lock.forecastIds.includes(Number(payload.param)) && batch?.id !== Number(payload.param)) {
     throw new Error("Расширение не создавало этот прогноз");
   }
   const request = { method: payload.method, locale: "ru", token: config.directOAuthToken };
   if (Object.prototype.hasOwnProperty.call(payload, "param")) request.param = payload.param;
+  if (batchKey && payload.method === "CreateNewForecast") await chrome.storage.local.set({ [batchKey]: { pending: true } });
   const response = await fetch(DIRECT_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request) });
   const data = await parseResponse(response);
   if (payload.method === "CreateNewForecast") {
+    if (batchKey) await chrome.storage.local.set({ [batchKey]: { id: Number(data.data) } });
     forecastTimestamps.push(Date.now());
     await chrome.storage.local.set({ directForecastTimestamps: forecastTimestamps });
     lock.forecastIds.push(Number(data.data));
     lock.expiresAt = Date.now() + FORECAST_LOCK_TTL;
     await chrome.storage.local.set({ directForecastLock: lock });
   } else if (payload.method === "GetForecastList") {
-    data.data = (data.data || []).filter(report => lock.forecastIds.includes(Number(report.ForecastID)));
+    data.data = (data.data || []).filter(report => lock.forecastIds.includes(Number(report.ForecastID)) || batch?.id === Number(report.ForecastID));
   } else if (payload.method === "DeleteForecastReport") {
+    if (batchKey && batch?.id === Number(payload.param)) await chrome.storage.local.set({ [batchKey]: { id: batch.id, deleted: true } });
     lock.forecastIds = lock.forecastIds.filter(id => id !== Number(payload.param));
     lock.expiresAt = Date.now() + FORECAST_LOCK_TTL;
     await chrome.storage.local.set({ directForecastLock: lock });
@@ -200,7 +210,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === "STATUS") {
       const config = await settings();
       const limits = forecastSettings(config);
-      return { version: chrome.runtime.getManifest().version, wordstatDailyLimit: wordstatDailyLimit(config.wordstatDailyLimit), forecastSafety: true, forecastHourlyLimit: limits.hourly, forecastDailyLimit: limits.daily, forecastAutoResume: limits.autoResume, "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
+      return { version: chrome.runtime.getManifest().version, wordstatDailyLimit: wordstatDailyLimit(config.wordstatDailyLimit), forecastSafety: true, forecastBatchRecovery: true, forecastHourlyLimit: limits.hourly, forecastDailyLimit: limits.daily, forecastAutoResume: limits.autoResume, "API-ключ Yandex Cloud": Boolean(config.cloudApiKey), "ID каталога": Boolean(config.folderId), "OAuth-токен Директа": Boolean(config.directOAuthToken) };
     }
     if (message.action === "OPEN_OPTIONS") { await chrome.runtime.openOptionsPage(); return true; }
     if (message.action === "DIRECT_FORECAST_BEGIN") return beginForecast();

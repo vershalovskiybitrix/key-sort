@@ -235,10 +235,10 @@
     URL.revokeObjectURL(url);
   });
 
-  async function waitForForecast(id, sessionId, generation) {
+  async function waitForForecast(id, sessionId, generation, batchId) {
     for (let attempt = 0; attempt < 45; attempt += 1) {
       current(generation);
-      const reports = await api.requestExtension("DIRECT_CALL", { method: "GetForecastList", sessionId });
+      const reports = await api.requestExtension("DIRECT_CALL", { method: "GetForecastList", sessionId, batchId });
       const report = (reports.data || []).find(item => Number(item.ForecastID) === Number(id));
       if (report?.StatusForecast === "Done") return;
       if (report?.StatusForecast === "Failed") throw new Error("Яндекс не смог сформировать прогноз");
@@ -248,10 +248,10 @@
     throw new Error("Прогноз не сформирован за 90 секунд");
   }
 
-  async function createForecast(param, sessionId, generation) {
+  async function createForecast(param, sessionId, generation, batchId) {
     while (true) {
       try {
-        return await api.requestExtension("DIRECT_CALL", { method: "CreateNewForecast", param, sessionId });
+        return await api.requestExtension("DIRECT_CALL", { method: "CreateNewForecast", param, sessionId, batchId });
       } catch (error) {
         if (error.code !== "FORECAST_RATE_LIMIT" || !Number.isFinite(Number(error.retryAfter))) throw error;
         const delay = Math.max(1000, Number(error.retryAfter));
@@ -332,29 +332,45 @@
     let keepAlive = null;
     try {
       const extensionState = await api.requestExtension("STATUS");
-      if (!extensionState.forecastSafety) throw new Error("Расширение устарело. Обновите его на странице установки и перезагрузите в Chrome");
+      if (!extensionState.forecastBatchRecovery) throw new Error("Расширение устарело. Обновите его на странице установки и перезагрузите в Chrome");
       const session = await beginSession(generation);
       sessionId = session.sessionId;
       keepAlive = setInterval(() => api.requestExtension("DIRECT_FORECAST_TOUCH", { sessionId }).catch(() => {}), 30000);
       const batchCount = Math.ceil(job.phrases.length / 100);
-      while (job.nextIndex < job.phrases.length) {
+      while (job.nextIndex < job.phrases.length || job.pendingDelete) {
         current(generation);
+        if (job.pendingDelete) {
+          const { id, batchId } = job.pendingDelete;
+          await databasePut(savedState());
+          current(generation);
+          await api.requestExtension("DIRECT_CALL", { method: "DeleteForecastReport", param: id, sessionId, batchId });
+          current(generation);
+          delete job.pendingDelete;
+          await databasePut(savedState());
+          if (job.nextIndex < job.phrases.length) await pause(5000, generation);
+          continue;
+        }
         const batchNumber = Math.floor(job.nextIndex / 100) + 1;
         const batch = job.phrases.slice(job.nextIndex, job.nextIndex + 100);
         api.setStatus(status, `Расчёт пакета ${batchNumber} из ${batchCount}…`);
-        const created = await createForecast({ Phrases: batch, GeoID: job.geo, Currency: job.currency, AuctionBids: "Yes" }, sessionId, generation);
-        await waitForForecast(created.data, sessionId, generation);
-        const result = await api.requestExtension("DIRECT_CALL", { method: "GetForecast", param: created.data, sessionId });
-        await api.requestExtension("DIRECT_CALL", { method: "DeleteForecastReport", param: created.data, sessionId });
+        job.batchId ||= crypto.randomUUID();
+        await databasePut(savedState());
+        current(generation);
+        const batchId = job.batchId;
+        const created = await createForecast({ Phrases: batch, GeoID: job.geo, Currency: job.currency, AuctionBids: "Yes" }, sessionId, generation, batchId);
+        current(generation);
+        await waitForForecast(created.data, sessionId, generation, batchId);
+        const result = await api.requestExtension("DIRECT_CALL", { method: "GetForecast", param: created.data, sessionId, batchId });
+        current(generation);
         appendResult(job.result, result.data);
         job.nextIndex += batch.length;
+        job.pendingDelete = { id: created.data, batchId };
+        delete job.batchId;
         lastWarnings = job.warnings;
-        render(job.result);
+        lastResult = job.result;
         await databasePut(savedState());
-        if (job.nextIndex < job.phrases.length) {
-          api.setStatus(status, `Пакет ${batchNumber} из ${batchCount} готов. Пауза 5 секунд…`);
-          await pause(5000, generation);
-        }
+        current(generation);
+        render(job.result);
       }
       activeJob = null;
       lastResult = job.result;
@@ -417,14 +433,13 @@
   document.getElementById("forecastForm").addEventListener("submit", async event => {
     event.preventDefault();
     if (running) return api.setStatus(status, "Расчёт уже выполняется.", true);
+    if (activeJob) return runJob(activeJob);
     const prepared = preparePhrases(phrasesInput.value);
     const phrases = prepared.phrases;
     if (!phrases.length) return api.setStatus(status, prepared.warnings.length ? emptyPhrasesStatus(prepared.warnings) : "Добавьте хотя бы одну фразу.", true);
     const geo = regionPicker.signedValue().map(Number).filter(Number.isFinite);
     clearResult();
     activeJob = { phrases, warnings: prepared.warnings, geo, currency: currencySelect.value, nextIndex: 0, result: { Phrases: [], Common: { Shows: 0, Clicks: 0, FirstPlaceClicks: 0, PremiumClicks: 0, Geo: "" } } };
-    await databasePut(savedState());
-    api.setStatus(status, "Создание прогноза…");
     runJob(activeJob);
   });
 })();

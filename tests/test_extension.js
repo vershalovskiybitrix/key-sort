@@ -50,7 +50,7 @@ function send(action, payload = {}) {
 
 (async () => {
   const status = await send("STATUS");
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(status.data)), { version: "1.0.1", wordstatDailyLimit: 500, forecastSafety: true, forecastHourlyLimit: 30, forecastDailyLimit: 100, forecastAutoResume: true, "API-ключ Yandex Cloud": true, "ID каталога": true, "OAuth-токен Директа": true });
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(status.data)), { version: "1.0.1", wordstatDailyLimit: 500, forecastSafety: true, forecastBatchRecovery: true, forecastHourlyLimit: 30, forecastDailyLimit: 100, forecastAutoResume: true, "API-ключ Yandex Cloud": true, "ID каталога": true, "OAuth-токен Директа": true });
   assert.ok(!JSON.stringify(status).includes("cloud-secret"));
 
   const wordstat = await send("WORDSTAT_TOP", { phrase: "купить диван", numPhrases: 25, regions: ["213"] });
@@ -142,5 +142,20 @@ function send(action, payload = {}) {
   assert.strictEqual(parallel.filter(result => result.ok).length, 1);
   assert.strictEqual(parallel.filter(result => result.code === "WORDSTAT_DAILY_LIMIT").length, 1);
   assert.strictEqual(requests.length, requestCount + 1);
+
+  const batchId = "10000000-0000-4000-8000-000000000001";
+  const payload = { method: "CreateNewForecast", batchId, sessionId: session.data.sessionId, param: { Phrases: ["пакет"] } };
+  const batch = await send("DIRECT_CALL", payload);
+  assert.strictEqual(batch.data.data, 77);
+  await send("DIRECT_FORECAST_END", { sessionId: session.data.sessionId });
+  const resumed = await send("DIRECT_FORECAST_BEGIN");
+  payload.sessionId = resumed.data.sessionId;
+  const beforeResume = requests.length;
+  assert.strictEqual((await send("DIRECT_CALL", payload)).data.data, 77);
+  assert.strictEqual(requests.length, beforeResume);
+  const cleanup = { method: "DeleteForecastReport", param: 77, batchId, sessionId: payload.sessionId };
+  assert.strictEqual((await send("DIRECT_CALL", cleanup)).ok, true);
+  assert.strictEqual((await send("DIRECT_CALL", cleanup)).ok, true);
+  assert.strictEqual(requests.length, beforeResume + 1);
   console.log("extension tests passed");
 })().catch(error => { console.error(error); process.exitCode = 1; });
